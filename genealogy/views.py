@@ -82,6 +82,7 @@ def tree(request):
         "up": max(0, min(_int_or_none(request.GET.get("up")) or 3, 10)),
         "down": max(0, min(_int_or_none(request.GET.get("down")) or 3, 10)),
         "canEdit": request.user.has_perm("genealogy.add_person"),
+        "layout": "network" if request.GET.get("layout") == "network" else "tree",
     }
     return render(request, "genealogy/tree.html", {"config": config, "people_count": people_count})
 

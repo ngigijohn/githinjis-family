@@ -160,11 +160,14 @@
   }
 
   function createGraph(container, options) {
-    const opts = Object.assign({ colorMode: "gender", mini: false }, options);
+    const opts = Object.assign({ colorMode: "gender", layout: "tree", mini: false }, options);
     let colorMode = opts.colorMode;
+    let layoutMode = opts.layout === "network" ? "network" : "tree";
     let colors = readTheme();
     let rows = [];
     let branches = [];
+    let simulation = null;
+    let simNodes = new Map();
 
     if (getComputedStyle(container).position === "static") container.style.position = "relative";
     const bands = document.createElement("canvas");
@@ -179,7 +182,7 @@
       maxZoom: 2.5,
       wheelSensitivity: 0.3,
       boxSelectionEnabled: false,
-      autoungrabify: true,
+      autoungrabify: layoutMode !== "network",
       selectionType: "single",
     });
 
@@ -212,8 +215,7 @@
     function stylesheet() {
       const card = (selected) => (node) => cardImage(node.data(), toneFor(node), selected, colors);
       const haloSelector = opts.mini ? "node[kind = 'person']:selected, node[kind = 'person'][?root]" : "node[kind = 'person']:selected";
-      return [
-        { selector: "node", style: { "overlay-opacity": 0 } },
+      const tree = [
         {
           selector: "node[kind = 'person']",
           style: {
@@ -264,10 +266,59 @@
         },
         { selector: "edge[kind = 'partner']", style: { "curve-style": "straight", "line-color": colors.accentLine, width: 2 } },
         { selector: "edge[rtype = 'adopted'], edge[rtype = 'step'], edge[rtype = 'foster']", style: { "line-style": "dashed", "line-dash-pattern": [6, 4] } },
-        { selector: ".faded", style: { opacity: 0.18 } },
-        { selector: "edge.highlight", style: { "line-color": (edge) => (colorMode === "branch" && branchColor(edge.target())) || colors.brand, width: 2.8 } },
-        { selector: "edge.highlight[kind = 'partner']", style: { "line-color": colors.accent, width: 2.6 } },
       ];
+      const network = [
+        {
+          selector: "node[kind = 'person']",
+          style: {
+            shape: "ellipse",
+            width: "data(size)",
+            height: "data(size)",
+            "background-color": (node) => toneFor(node).ring,
+            "background-opacity": (node) => (node.data("living") ? 1 : 0.35),
+            "border-width": (node) => (node.data("living") ? 0 : 2),
+            "border-style": "dashed",
+            "border-color": (node) => toneFor(node).ring,
+            label: "data(label)",
+            "font-family": `Inter, ${CARD_FONT}`,
+            "font-size": 11,
+            color: colors.ink,
+            "text-valign": "bottom",
+            "text-halign": "center",
+            "text-margin-y": 5,
+            "text-outline-color": colors.stage,
+            "text-outline-width": 2.5,
+            "min-zoomed-font-size": 9,
+            "transition-property": "opacity",
+            "transition-duration": 150,
+          },
+        },
+        { selector: "node[kind = 'person'][photoData]", style: { "background-image": "data(photoData)", "background-fit": "cover", "background-opacity": 1 } },
+        { selector: "node[kind = 'person']:selected", style: { "border-width": 3, "border-style": "solid", "border-color": colors.brand } },
+        {
+          selector: "edge",
+          style: {
+            "curve-style": "straight",
+            width: 1.2,
+            "line-color": descentColor,
+            opacity: 0.6,
+            "transition-property": "opacity, line-color, width",
+            "transition-duration": 150,
+          },
+        },
+        { selector: "edge[kind = 'partner']", style: { "line-color": colors.accentLine, width: 2 } },
+        { selector: "edge[rtype = 'adopted'], edge[rtype = 'step'], edge[rtype = 'foster']", style: { "line-style": "dashed", "line-dash-pattern": [5, 4] } },
+      ];
+      const interaction = [
+        { selector: ".faded", style: { opacity: 0.18 } },
+        { selector: "edge.highlight", style: { "line-color": (edge) => (colorMode === "branch" && branchColor(edge.target())) || colors.brand, width: 2.8, opacity: 1 } },
+        { selector: "edge.highlight[kind = 'partner']", style: { "line-color": colors.accent, width: 2.6 } },
+        { selector: ".dimmed", style: { opacity: 0.1 } },
+        { selector: "node.near", style: { opacity: 1, "min-zoomed-font-size": 0, "font-weight": 600, "z-index": 10 } },
+        { selector: "edge.near", style: { opacity: 1, "line-color": colors.brand, width: 2.6, "z-index": 9 } },
+        { selector: "edge.near[kind = 'partner']", style: { "line-color": colors.accent } },
+      ];
+      return [{ selector: "node", style: { "overlay-opacity": 0 } }, ...(layoutMode === "network" ? network : tree), ...interaction];
     }
 
     const applyStyle = () => cy.style(stylesheet());
@@ -281,6 +332,7 @@
 
     // Branches start at the first couple (walking down from the founders with the
     // most descendants) that has more than one child. Everyone above stays neutral.
+    // Works on the tree's family structure, so the network computes it before flattening.
     function computeBranches() {
       const people = cy.nodes("[kind = 'person']");
       people.forEach((node) => node.removeScratch("_branch"));
@@ -375,6 +427,110 @@
       rows = [...byY.values()].sort((a, b) => a.y - b.y);
     }
 
+    // Flatten couples for the network: partners link to each other and each parent links
+    // straight to each child, so a person's neighbours are exactly their closest relatives.
+    function networkElements(elements) {
+      const nodes = [];
+      const edges = [];
+      const ids = new Set();
+      const partners = new Map();
+      const degree = new Map();
+      const link = (source, target, data) => {
+        const id = `n-${source}-${target}`;
+        if (ids.has(id) || ids.has(`n-${target}-${source}`)) return;
+        ids.add(id);
+        edges.push({ group: "edges", data: Object.assign({ id, source, target }, data) });
+        [source, target].forEach((pid) => degree.set(pid, (degree.get(pid) || 0) + 1));
+      };
+      elements.forEach((element) => {
+        const data = element.data;
+        if (data.kind === "person") nodes.push({ group: "nodes", data: Object.assign({}, data) });
+        if (data.kind === "partner") {
+          if (!partners.has(data.target)) partners.set(data.target, []);
+          partners.get(data.target).push(data.source);
+        }
+      });
+      partners.forEach((pair) => {
+        if (pair.length === 2) link(pair[0], pair[1], { kind: "partner" });
+      });
+      elements.forEach((element) => {
+        const data = element.data;
+        if (data.kind !== "child") return;
+        (partners.get(data.source) || [data.source]).forEach((parent) => link(parent, data.target, { kind: "child", rtype: data.rtype }));
+      });
+      nodes.forEach((node) => {
+        node.data.size = Math.round(Math.min(48, 14 + 6 * Math.sqrt(degree.get(node.data.id) || 0)));
+      });
+      return nodes.concat(edges);
+    }
+
+    // ---- Physics (network layout) -------------------------------------------
+
+    function stopSimulation() {
+      if (simulation) simulation.stop();
+      simulation = null;
+      simNodes = new Map();
+    }
+
+    function startSimulation() {
+      return new Promise((resolve) => {
+        stopSimulation();
+        rows = [];
+        drawBands();
+        const spread = Math.sqrt(cy.nodes().length) * 60;
+        const nodes = cy.nodes().map((node) => {
+          const generation = node.data("generation") || 1;
+          return { id: node.id(), node, r: node.data("size") / 2, generation, x: (Math.random() - 0.5) * spread, y: generation * 120 + (Math.random() - 0.5) * 40 };
+        });
+        simNodes = new Map(nodes.map((d) => [d.id, d]));
+        const links = cy.edges().map((edge) => ({ source: edge.source().id(), target: edge.target().id(), kind: edge.data("kind") }));
+        const sim = d3
+          .forceSimulation(nodes)
+          .force("link", d3.forceLink(links).id((d) => d.id).distance((l) => (l.kind === "partner" ? 34 : 72)).strength((l) => (l.kind === "partner" ? 0.9 : 0.5)))
+          .force("charge", d3.forceManyBody().strength(-170).distanceMax(650))
+          .force("collide", d3.forceCollide((d) => d.r + 10).strength(0.9))
+          .force("generation", d3.forceY((d) => d.generation * 120).strength(0.05))
+          .force("x", d3.forceX(0).strength(0.015))
+          .alphaDecay(0.025);
+        simulation = sim;
+
+        let settled = false;
+        const settle = () => {
+          if (settled) return;
+          settled = true;
+          if (simulation === sim) cy.fit(cy.elements(), LAYOUT.padding);
+          resolve();
+        };
+        sim.on("tick", () => {
+          cy.batch(() => nodes.forEach((d) => d.node.grabbed() || d.node.position({ x: d.x, y: d.y })));
+          if (sim.alpha() < 0.4) settle();
+        });
+        setTimeout(settle, 1800); // animation frames pause in background tabs
+      });
+    }
+
+    cy.on("grab", "node[kind = 'person']", (event) => {
+      const d = simNodes.get(event.target.id());
+      if (!simulation || !d) return;
+      d.fx = d.x;
+      d.fy = d.y;
+      simulation.alphaTarget(0.3).restart();
+    });
+    cy.on("drag", "node[kind = 'person']", (event) => {
+      const d = simNodes.get(event.target.id());
+      if (!d) return;
+      const { x, y } = event.target.position();
+      d.fx = x;
+      d.fy = y;
+    });
+    cy.on("free", "node[kind = 'person']", (event) => {
+      const d = simNodes.get(event.target.id());
+      if (!simulation || !d) return;
+      d.fx = null;
+      d.fy = null;
+      simulation.alphaTarget(0);
+    });
+
     // ---- Generation bands --------------------------------------------------
 
     function drawBands() {
@@ -459,22 +615,65 @@
 
     // ---- Interaction -------------------------------------------------------
 
+    // Parents, partners and children, with the lines that join them.
+    function firstLevel(node) {
+      if (layoutMode === "network") return node.closedNeighborhood();
+      const asPartner = node.outgoers("node[kind = 'union']");
+      const asChild = node.incomers("node[kind = 'union']");
+      const people = asPartner
+        .incomers("node[kind = 'person']")
+        .union(asPartner.outgoers("node[kind = 'person']"))
+        .union(asChild.incomers("node[kind = 'person']"))
+        .union(node.incomers("node[kind = 'person']"))
+        .union(node.outgoers("node[kind = 'person']"));
+      const near = node.union(people).union(asPartner).union(asChild);
+      return near.union(near.edgesWith(near));
+    }
+
+    // Every ancestor and descendant, plus the person's partners.
+    function lineOf(node) {
+      if (layoutMode !== "network") {
+        const unions = node.outgoers("node[kind = 'union']");
+        return node
+          .union(node.predecessors())
+          .union(node.successors())
+          .union(unions)
+          .union(unions.connectedEdges())
+          .union(unions.incomers("node[kind = 'person']"));
+      }
+      const climb = (step) => {
+        let seen = node;
+        let frontier = node;
+        while (frontier.nonempty()) {
+          frontier = step(frontier).difference(seen);
+          seen = seen.union(frontier);
+        }
+        return seen;
+      };
+      const keep = climb((set) => set.incomers("edge[kind = 'child']").sources())
+        .union(climb((set) => set.outgoers("edge[kind = 'child']").targets()))
+        .union(node.connectedEdges("[kind = 'partner']").connectedNodes());
+      return keep.union(keep.edgesWith(keep));
+    }
+
     function clearHighlight() {
       cy.elements().removeClass("faded highlight");
     }
 
     function highlightLine(node) {
       clearHighlight();
-      const unions = node.outgoers("node[kind = 'union']");
-      const partners = unions.incomers("node[kind = 'person']");
-      const keep = node
-        .union(node.predecessors())
-        .union(node.successors())
-        .union(unions)
-        .union(unions.connectedEdges())
-        .union(partners);
+      const keep = lineOf(node);
       cy.elements().not(keep).addClass("faded");
       keep.edges().addClass("highlight");
+    }
+
+    const clearNear = () => cy.batch(() => cy.elements().removeClass("dimmed near"));
+    function showNear(node) {
+      const near = firstLevel(node);
+      cy.batch(() => {
+        cy.elements().not(near).addClass("dimmed");
+        near.addClass("near");
+      });
     }
 
     cy.on("tap", "node[kind = 'person']", (event) => {
@@ -488,8 +687,14 @@
         opts.onSelect && opts.onSelect(null);
       }
     });
-    cy.on("mouseover", "node[kind = 'person']", () => (container.style.cursor = "pointer"));
-    cy.on("mouseout", "node[kind = 'person']", () => (container.style.cursor = ""));
+    cy.on("mouseover", "node[kind = 'person']", (event) => {
+      container.style.cursor = layoutMode === "network" ? "grab" : "pointer";
+      showNear(event.target);
+    });
+    cy.on("mouseout", "node[kind = 'person']", () => {
+      container.style.cursor = "";
+      clearNear();
+    });
 
     function runLayout() {
       return new Promise((resolve) => {
@@ -516,9 +721,23 @@
       const response = await fetch(url, { headers: { Accept: "application/json" } });
       if (!response.ok) throw new Error(`Tree request failed with status ${response.status}`);
       const data = await response.json();
+      stopSimulation();
       cy.elements().remove();
       cy.add(data.elements);
-      await runLayout();
+      if (layoutMode === "network" && window.d3) {
+        computeBranches();
+        const branchOf = new Map(cy.nodes("[kind = 'person']").map((node) => [node.id(), node.scratch("_branch")]));
+        cy.elements().remove();
+        cy.add(networkElements(data.elements));
+        cy.nodes().forEach((node) => {
+          const index = branchOf.get(node.id());
+          if (index !== undefined) node.scratch("_branch", index);
+        });
+        applyStyle();
+        await startSimulation();
+      } else {
+        await runLayout();
+      }
       loadPhotos();
       if (data.root && !opts.mini && cy.nodes().length > 30) {
         const root = cy.$id(`p${data.root}`);
@@ -533,6 +752,12 @@
       clearHighlight,
       setColorMode(mode) {
         colorMode = mode;
+        applyStyle();
+      },
+      setLayout(mode) {
+        layoutMode = mode === "network" ? "network" : "tree";
+        stopSimulation();
+        cy.autoungrabify(layoutMode !== "network");
         applyStyle();
       },
       refreshTheme() {
@@ -603,6 +828,7 @@
       up: config.up,
       down: config.down,
       colorMode: "gender",
+      layout: config.layout === "network" ? "network" : "tree",
       branches: [],
       canEdit: config.canEdit,
       selected: null,
@@ -616,6 +842,7 @@
       init() {
         graph = createGraph(this.$refs.canvas, {
           endpoint: config.endpoint,
+          layout: config.layout,
           onSelect: (data) => {
             this.selected = data;
             this.panelOpen = Boolean(data);
@@ -655,6 +882,7 @@
           url.searchParams.set("up", this.up);
           url.searchParams.set("down", this.down);
         }
+        if (this.layout === "network") url.searchParams.set("layout", "network");
         window.history.replaceState(null, "", url);
       },
 
@@ -766,6 +994,15 @@
         }
         this.showAll = value;
         this.reload();
+      },
+
+      setLayout(mode) {
+        if (mode === this.layout) return;
+        this.layout = mode;
+        graph.setLayout(mode);
+        this.reload().then(() => {
+          if (this.selected) graph.focus(this.selected.pk);
+        });
       },
 
       setColorMode(mode) {

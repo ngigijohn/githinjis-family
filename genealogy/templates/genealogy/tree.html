@@ -50,6 +50,15 @@
       </div>
 
       <div>
+        <p class="label">Layout</p>
+        <div class="grid grid-cols-2 gap-1 rounded-full bg-bg p-1">
+          <button type="button" @click="setLayout('tree')" :class="layout === 'tree' ? 'bg-surface shadow-soft text-brand' : 'text-muted'" class="rounded-full px-3 py-1.5 text-sm font-medium" :aria-pressed="layout === 'tree'">Tree</button>
+          <button type="button" @click="setLayout('network')" :class="layout === 'network' ? 'bg-surface shadow-soft text-brand' : 'text-muted'" class="rounded-full px-3 py-1.5 text-sm font-medium" :aria-pressed="layout === 'network'">Network</button>
+        </div>
+        <p class="mt-2 text-xs text-muted" x-text="layout === 'network' ? 'Relatives pull together and everyone else makes room. Drag anyone to move their family.' : 'Generations in rows, with couples side by side.'"></p>
+      </div>
+
+      <div>
         <p class="label">View</p>
         <div class="grid grid-cols-2 gap-1 rounded-full bg-bg p-1">
           <button type="button" @click="setShowAll(true)" :class="showAll ? 'bg-surface shadow-soft text-brand' : 'text-muted'" class="rounded-full px-3 py-1.5 text-sm font-medium">Everyone</button>
@@ -103,15 +112,24 @@
             <li class="text-xs">Each clan (mbarĩ / mũhĩrĩga) gets its own colour. People with no clan recorded appear in grey.</li>
           </template>
           <li class="flex items-center gap-3"><span class="flex w-7 justify-center"><span class="h-4 w-4 rounded-full border-2 border-dashed border-muted"></span></span>Deceased</li>
-          <li class="flex items-center gap-3">
-            <span class="flex w-7 justify-center"><svg class="h-4 w-6 text-accent" viewBox="0 0 26 16" aria-hidden="true"><circle cx="9.5" cy="8" r="5.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="16.5" cy="8" r="5.5" fill="none" stroke="currentColor" stroke-width="2"/></svg></span>Couple
-          </li>
+          <template x-if="layout === 'tree'">
+            <li class="flex items-center gap-3">
+              <span class="flex w-7 justify-center"><svg class="h-4 w-6 text-accent" viewBox="0 0 26 16" aria-hidden="true"><circle cx="9.5" cy="8" r="5.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="16.5" cy="8" r="5.5" fill="none" stroke="currentColor" stroke-width="2"/></svg></span>Couple
+            </li>
+          </template>
+          <template x-if="layout === 'network'">
+            <div class="space-y-2">
+              <li class="flex items-center gap-3"><span class="w-7 border-t-2 border-accent"></span>Partners</li>
+              <li class="flex items-center gap-3"><span class="w-7 border-t-2 border-muted/60"></span>Parent and child</li>
+              <li class="flex items-center gap-3"><span class="flex w-7 items-center justify-center gap-1"><span class="h-2 w-2 rounded-full bg-muted"></span><span class="h-4 w-4 rounded-full bg-muted"></span></span>Bigger dot: more close relatives</li>
+            </div>
+          </template>
           <li class="flex items-center gap-3"><span class="w-7 border-t-2 border-dashed border-muted"></span>Adopted, step or foster</li>
         </ul>
       </div>
 
       <p class="rounded-2xl bg-brand-soft/60 p-4 text-xs leading-relaxed text-muted">
-        <span class="font-semibold text-ink">Tip:</span> type a name above, or click anyone on the tree, to follow their ancestors and descendants. Scroll or pinch to zoom, drag to move around.
+        <span class="font-semibold text-ink">Tip:</span> hover over anyone to see their parents, partners and children. Type a name above, or click someone, to follow their ancestors and descendants. Scroll or pinch to zoom.
       </p>
     </div>
   </aside>
@@ -233,5 +251,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.30.2/cytoscape.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/dagre/0.8.5/dagre.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/cytoscape-dagre@2.5.0/cytoscape-dagre.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
 <script src="{% static 'genealogy/js/tree.js' %}"></script>
 {% endblock %}
