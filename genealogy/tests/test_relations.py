@@ -6,12 +6,39 @@ from genealogy.services.relations import (
     build_graph,
     descendants,
     generation_count,
+    generation_numbers,
     kinship_label,
     relationship_between,
     suggested_root,
 )
 
 from .family import build_family
+
+
+class GenerationNumberTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.f = build_family()
+
+    def test_generations_follow_ancestry_and_married_in_partners(self):
+        f = self.f
+        expected = {
+            f.gg: 1, f.ggm: 1,
+            f.g: 2, f.gm: 2,  # Grandma has no recorded parents and takes Grandpa's generation
+            f.father: 3, f.mother: 3, f.second_wife: 3, f.uncle: 3, f.uncle_wife: 3, f.aunt: 3,
+            f.me: 4, f.wife: 4, f.brother: 4, f.half_brother: 4, f.cousin: 4, f.cousin_husband: 4,
+            f.son: 5, f.nephew: 5, f.cousin_child: 5,
+        }
+        generations = generation_numbers()
+        for person, generation in expected.items():
+            with self.subTest(person=person.first_name):
+                self.assertEqual(generations[person.pk], generation)
+        self.assertNotIn(f.stranger.pk, generations)
+
+    def test_tree_nodes_carry_their_generation(self):
+        people = {e["data"]["pk"]: e["data"] for e in build_graph()["elements"] if e["data"].get("kind") == "person"}
+        self.assertEqual(people[self.f.cousin_child.pk]["generation"], 5)
+        self.assertEqual(people[self.f.stranger.pk]["generation"], 1)
 
 
 class KinshipLabelTests(TestCase):

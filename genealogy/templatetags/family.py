@@ -9,9 +9,10 @@ AVATAR_SIZES = {
     "xl": "h-32 w-32 text-3xl sm:h-40 sm:w-40",
 }
 AVATAR_TONES = {
-    "M": "bg-brand-soft text-brand",
+    "M": "bg-male-soft text-male",
     "F": "bg-rose-soft text-rose",
 }
+AVATAR_NEUTRAL_TONE = "bg-line/70 text-muted"
 
 
 @register.filter
@@ -25,7 +26,7 @@ def avatar(person, size="md"):
     return {
         "person": person,
         "size_class": AVATAR_SIZES.get(size, AVATAR_SIZES["md"]),
-        "tone": AVATAR_TONES.get(person.gender, "bg-accent-soft text-accent"),
+        "tone": AVATAR_TONES.get(person.gender, AVATAR_NEUTRAL_TONE),
     }
 
 

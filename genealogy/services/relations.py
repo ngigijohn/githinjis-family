@@ -83,6 +83,39 @@ def generation_count(index=None):
     return max((depth(pid) for pid in list(index.children)), default=0)
 
 
+def generation_numbers(index=None):
+    """``{person_id: generation}``, counting 1 at the eldest recorded ancestors.
+
+    Someone with no recorded parents who married into the family takes their
+    partner's generation, so in-laws sit on the same row as their partner.
+    """
+    index = index or FamilyIndex.load()
+    people = set(index.parents) | set(index.children) | set(index.partners)
+
+    def resolve(start):
+        memo, visiting = {}, set()
+
+        def gen(pid):
+            if pid in memo:
+                return memo[pid]
+            parents = index.parents.get(pid)
+            if not parents or pid in visiting:  # defensive: validation prevents cycles
+                return start(pid)
+            visiting.add(pid)
+            memo[pid] = 1 + max(gen(parent) for parent in parents)
+            visiting.discard(pid)
+            return memo[pid]
+
+        return {pid: gen(pid) for pid in people}
+
+    by_ancestry = resolve(lambda pid: 1)
+
+    def start(pid):
+        return max((by_ancestry[q] for q in index.partners.get(pid, ()) if index.parents.get(q)), default=1)
+
+    return resolve(start)
+
+
 def suggested_root(index=None):
     """The founding ancestor with the most descendants: a sensible starting point for the tree."""
     from genealogy.models import Person
@@ -309,6 +342,7 @@ def build_graph(root=None, up=3, down=3, hide_living_birth=False):
 
     people = list(people_qs)
     included = {p.pk for p in people}
+    generations = generation_numbers(index)
     elements = []
     edge_ids = set()
 
@@ -320,7 +354,14 @@ def build_graph(root=None, up=3, down=3, hide_living_birth=False):
 
     for person in people:
         data = person_summary(person, hide_living_birth)
-        data.update({"id": f"p{person.pk}", "kind": "person", "root": person.pk == root_id})
+        data.update(
+            {
+                "id": f"p{person.pk}",
+                "kind": "person",
+                "root": person.pk == root_id,
+                "generation": generations.get(person.pk, 1),
+            }
+        )
         elements.append({"group": "nodes", "data": data})
 
     unions = {}

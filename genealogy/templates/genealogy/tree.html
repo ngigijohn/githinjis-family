@@ -21,19 +21,32 @@
 
     <div class="space-y-7 p-5">
       <div class="relative" @click.outside="results = []">
-        <label for="tree-search" class="label">Find a person</label>
-        <input id="tree-search" type="search" class="input" placeholder="Type a name…" autocomplete="off"
-               x-model="query" @input.debounce.200ms="search()" @keydown.enter.prevent="results[0] && choose(results[0])">
-        <ul x-cloak x-show="results.length" class="card absolute z-30 mt-2 max-h-64 w-full overflow-auto p-1.5">
-          <template x-for="person in results" :key="person.pk">
-            <li>
-              <button type="button" @click="choose(person)" class="flex w-full flex-col rounded-xl px-3 py-2 text-left hover:bg-brand-soft">
-                <span class="text-sm font-medium" x-text="person.label"></span>
-                <span class="text-xs text-muted" x-text="person.lifespan || 'Dates not recorded'"></span>
+        <label for="tree-search" class="label">Follow the line of</label>
+        <div class="relative">
+          <svg class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 3.4 9.83l3.13 3.14a.75.75 0 1 0 1.06-1.06l-3.13-3.14A5.5 5.5 0 0 0 9 3.5ZM5 9a4 4 0 1 1 8 0 4 4 0 0 1-8 0Z" clip-rule="evenodd"/></svg>
+          <input id="tree-search" type="text" enterkeyhint="search" class="input pl-9 pr-9" placeholder="Start typing a name…" autocomplete="off"
+                 role="combobox" aria-autocomplete="list" aria-controls="tree-search-results"
+                 :aria-expanded="results.length > 0" :aria-activedescendant="active >= 0 ? `tree-result-${active}` : null"
+                 x-model="query" @input="search()"
+                 @keydown.arrow-down.prevent="move(1)" @keydown.arrow-up.prevent="move(-1)"
+                 @keydown.enter.prevent="choose(results[active] || results[0])" @keydown.escape="results = []">
+          <button x-cloak x-show="query" type="button" @click="clearLine()" class="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-xs text-muted hover:bg-brand-soft hover:text-ink" aria-label="Clear and stop following">✕</button>
+        </div>
+        <ul id="tree-search-results" role="listbox" x-cloak x-show="results.length" class="card absolute z-30 mt-2 max-h-72 w-full overflow-auto p-1.5">
+          <template x-for="(person, i) in results" :key="person.pk">
+            <li role="option" :id="`tree-result-${i}`" :aria-selected="i === active">
+              <button type="button" tabindex="-1" @click="choose(person)" @mouseenter="active = i"
+                      :class="i === active ? 'bg-brand-soft' : ''" class="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left">
+                <span class="flex h-8 w-8 flex-none items-center justify-center rounded-full text-xs font-semibold" :class="toneClass(person)" x-text="initials(person)"></span>
+                <span class="min-w-0">
+                  <span class="block truncate text-sm font-medium" x-text="person.label"></span>
+                  <span class="block truncate text-xs text-muted" x-text="person.outside ? 'Not in this view · centres the tree on them' : (person.lifespan || 'Dates not recorded')"></span>
+                </span>
               </button>
             </li>
           </template>
         </ul>
+        <p x-cloak x-show="searched && query && !results.length" class="mt-2 text-xs text-muted">Nobody matching “<span x-text="query"></span>” is in this view.</p>
       </div>
 
       <div>
@@ -46,20 +59,21 @@
           <p class="text-sm">Centered on <span class="font-semibold text-brand" x-text="rootName || 'nobody yet'"></span></p>
           <div>
             <div class="flex justify-between text-xs text-muted"><span>Generations up</span><span x-text="up"></span></div>
-            <input type="range" min="0" max="8" x-model.number="up" @change="reload()" class="w-full">
+            <input type="range" min="0" max="8" x-model.number="up" @change="reload()" class="w-full" aria-label="Generations up">
           </div>
           <div>
             <div class="flex justify-between text-xs text-muted"><span>Generations down</span><span x-text="down"></span></div>
-            <input type="range" min="0" max="8" x-model.number="down" @change="reload()" class="w-full">
+            <input type="range" min="0" max="8" x-model.number="down" @change="reload()" class="w-full" aria-label="Generations down">
           </div>
         </div>
       </div>
 
       <div>
         <p class="label">Colour by</p>
-        <div class="grid grid-cols-2 gap-1 rounded-full bg-bg p-1">
-          <button type="button" @click="setColorMode('gender')" :class="colorMode === 'gender' ? 'bg-surface shadow-soft text-brand' : 'text-muted'" class="rounded-full px-3 py-1.5 text-sm font-medium">Gender</button>
-          <button type="button" @click="setColorMode('lineage')" :class="colorMode === 'lineage' ? 'bg-surface shadow-soft text-brand' : 'text-muted'" class="rounded-full px-3 py-1.5 text-sm font-medium">Lineage</button>
+        <div class="grid grid-cols-3 gap-1 rounded-full bg-bg p-1">
+          <button type="button" @click="setColorMode('gender')" :class="colorMode === 'gender' ? 'bg-surface shadow-soft text-brand' : 'text-muted'" class="rounded-full px-2 py-1.5 text-sm font-medium">Gender</button>
+          <button type="button" @click="setColorMode('branch')" :class="colorMode === 'branch' ? 'bg-surface shadow-soft text-brand' : 'text-muted'" class="rounded-full px-2 py-1.5 text-sm font-medium">Branch</button>
+          <button type="button" @click="setColorMode('lineage')" :class="colorMode === 'lineage' ? 'bg-surface shadow-soft text-brand' : 'text-muted'" class="rounded-full px-2 py-1.5 text-sm font-medium">Clan</button>
         </div>
       </div>
 
@@ -68,22 +82,36 @@
         <ul class="space-y-2 text-sm text-muted">
           <template x-if="colorMode === 'gender'">
             <div class="space-y-2">
-              <li class="flex items-center gap-3"><span class="h-4 w-7 rounded-md border-2 border-brand bg-surface"></span>Male</li>
-              <li class="flex items-center gap-3"><span class="h-4 w-7 rounded-md border-2 border-rose bg-surface"></span>Female</li>
-              <li class="flex items-center gap-3"><span class="h-4 w-7 rounded-md border-2 border-muted bg-surface"></span>Unknown / other</li>
+              <li class="flex items-center gap-3"><span class="flex w-7 justify-center"><span class="h-4 w-4 rounded-full border-[2.5px] border-male bg-male-soft"></span></span>Male</li>
+              <li class="flex items-center gap-3"><span class="flex w-7 justify-center"><span class="h-4 w-4 rounded-full border-[2.5px] border-rose bg-rose-soft"></span></span>Female</li>
+              <li class="flex items-center gap-3"><span class="flex w-7 justify-center"><span class="h-4 w-4 rounded-full border-[2.5px] border-muted bg-line/70"></span></span>Other or not recorded</li>
+            </div>
+          </template>
+          <template x-if="colorMode === 'branch'">
+            <div class="space-y-2">
+              <template x-for="branch in branches" :key="branch.label">
+                <li class="flex items-center gap-3">
+                  <span class="flex w-7 justify-center"><span class="h-4 w-4 rounded-full border-[2.5px]" :style="`border-color:${branch.color};background:${branch.color}29`"></span></span>
+                  <span x-text="branch.label"></span>
+                </li>
+              </template>
+              <li class="flex items-center gap-3"><span class="flex w-7 justify-center"><span class="h-4 w-4 rounded-full border-[2.5px] border-muted bg-line/70"></span></span>Shared ancestors</li>
+              <li x-show="!branches.length" class="text-xs">Branches appear once the eldest recorded couple has more than one child.</li>
             </div>
           </template>
           <template x-if="colorMode === 'lineage'">
-            <li class="text-xs">Each clan or lineage gets its own border colour. People with no lineage recorded appear in grey.</li>
+            <li class="text-xs">Each clan (mbarĩ / mũhĩrĩga) gets its own colour. People with no clan recorded appear in grey.</li>
           </template>
-          <li class="flex items-center gap-3"><span class="h-4 w-7 rounded-md border-2 border-dashed border-muted bg-bg"></span>Deceased</li>
-          <li class="flex items-center gap-3"><span class="flex w-7 justify-center"><span class="h-2.5 w-2.5 rounded-full bg-accent"></span></span>Couple / union</li>
+          <li class="flex items-center gap-3"><span class="flex w-7 justify-center"><span class="h-4 w-4 rounded-full border-2 border-dashed border-muted"></span></span>Deceased</li>
+          <li class="flex items-center gap-3">
+            <span class="flex w-7 justify-center"><svg class="h-4 w-6 text-accent" viewBox="0 0 26 16" aria-hidden="true"><circle cx="9.5" cy="8" r="5.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="16.5" cy="8" r="5.5" fill="none" stroke="currentColor" stroke-width="2"/></svg></span>Couple
+          </li>
           <li class="flex items-center gap-3"><span class="w-7 border-t-2 border-dashed border-muted"></span>Adopted, step or foster</li>
         </ul>
       </div>
 
       <p class="rounded-2xl bg-brand-soft/60 p-4 text-xs leading-relaxed text-muted">
-        <span class="font-semibold text-ink">Tip:</span> click a person to highlight their ancestors and descendants. Scroll or pinch to zoom, drag to move around.
+        <span class="font-semibold text-ink">Tip:</span> type a name above, or click anyone on the tree, to follow their ancestors and descendants. Scroll or pinch to zoom, drag to move around.
       </p>
     </div>
   </aside>
@@ -148,13 +176,14 @@
           <img :src="selected.photo" alt="" class="h-24 w-24 rounded-full object-cover">
         </template>
         <template x-if="!selected.photo">
-          <span class="flex h-24 w-24 items-center justify-center rounded-full text-3xl font-semibold"
-                :class="selected.gender === 'M' ? 'bg-brand-soft text-brand' : selected.gender === 'F' ? 'bg-rose-soft text-rose' : 'bg-accent-soft text-accent'"
-                x-text="selected.initials"></span>
+          <span class="flex h-24 w-24 items-center justify-center rounded-full text-3xl font-semibold" :class="toneClass(selected)" x-text="initials(selected)"></span>
         </template>
         <h2 class="mt-5 font-display text-2xl" x-text="selected.label"></h2>
         <p class="mt-1 text-sm text-muted" x-text="selected.lifespan || (selected.living ? 'Living' : 'Deceased')"></p>
-        <template x-if="selected.lineage"><span class="chip mt-3" x-text="selected.lineage"></span></template>
+        <div class="mt-3 flex flex-wrap gap-2">
+          <template x-if="selected.generation"><span class="chip" x-text="`Generation ${selected.generation}`"></span></template>
+          <template x-if="selected.lineage"><span class="chip" x-text="selected.lineage"></span></template>
+        </div>
         <div class="mt-6 flex flex-col gap-2">
           <a :href="selected.url" class="btn btn-primary">View profile</a>
           <button type="button" class="btn btn-secondary" @click="centerOn(selected)">Center the tree here</button>

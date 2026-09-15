@@ -13,6 +13,9 @@
   --accent-soft: 250 237 211;
   --rose: 178 70 96;
   --rose-soft: 249 228 233;
+  --male: 49 110 196;
+  --male-soft: 225 235 250;
+  --stage: 244 239 228;
   color-scheme: light;
 }
 
@@ -31,6 +34,9 @@
     --accent-soft: 56 43 22;
     --rose: 236 146 166;
     --rose-soft: 58 31 39;
+    --male: 128 172 238;
+    --male-soft: 27 39 62;
+    --stage: 19 27 26;
     color-scheme: dark;
   }
 }
@@ -48,10 +54,9 @@ html { scroll-behavior: smooth; }
     radial-gradient(circle at 85% 30%, rgb(var(--brand) / 0.10), transparent 40%);
 }
 
+/* Generation bands are drawn by tree.js on top of this ground. */
 .tree-canvas {
-  background-color: rgb(var(--bg));
-  background-image: radial-gradient(rgb(var(--line)) 1px, transparent 1px);
-  background-size: 22px 22px;
+  background-color: rgb(var(--stage));
 }
 
 .polaroid {

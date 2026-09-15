@@ -6,7 +6,7 @@ It started in 2020 as a single static page with a gallery and a hand-built tree 
 
 ## Features
 
-- **Interactive family tree.** Built with Cytoscape.js and a dagre layout. Pan, zoom and search. Click a person to highlight their ancestors and descendants. Switch between the whole family and a focused view N generations up or down from one person. Colour nodes by gender or lineage, and export the tree as a PNG.
+- **Interactive family tree.** Built with Cytoscape.js and a dagre layout. People appear as cards with a photo or initials, couples meet at a rings symbol, and faint bands mark each generation. Type a name to follow anyone's line of ancestors and descendants, or click them on the tree. Switch between the whole family and a focused view N generations up or down from one person. Colour by gender, family branch or clan, and export the tree as a PNG.
 - **Relationship finder.** Names the relationship between any two people: parents, grandparents, *great-great-uncle*, *second cousin twice removed*, half-siblings, spouses, in-laws and step-relatives. It also shows the line through the closest common ancestors.
 - **Profiles.** Biography, life-event timeline, tagged photos, parents, partners (children grouped under each couple), siblings (half-siblings flagged) and a small tree of close family.
 - **Editing in the site.** Add a new parent, partner or child directly from a profile. Link two people who are already recorded, or remove a link. Validation blocks impossible data, such as a person becoming their own ancestor or having a third biological parent.
