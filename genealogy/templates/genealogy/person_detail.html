@@ -1,0 +1,313 @@
+{% extends "base.html" %}
+{% load static family %}
+
+{% block title %}{{ person.full_name }} · {{ SITE_NAME }}{% endblock %}
+{% block meta_description %}{{ person.full_name }}: profile and family connections in the {{ SITE_NAME }} tree.{% endblock %}
+
+{% block content %}
+<section class="paper border-b border-line">
+  <div class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+    <nav class="text-sm text-muted" aria-label="Breadcrumb">
+      <a href="{% url 'genealogy:person_list' %}" class="hover:text-brand">People</a>
+      <span class="mx-1.5">/</span><span class="text-ink">{{ person.full_name }}</span>
+    </nav>
+
+    <div class="mt-6 flex flex-col gap-8 md:flex-row md:items-end md:justify-between">
+      <div class="flex flex-col gap-6 sm:flex-row sm:items-center">
+        {% avatar person "xl" %}
+        <div>
+          <div class="flex flex-wrap gap-2">
+            {% if person.lineage %}<span class="chip">{{ person.lineage }}</span>{% endif %}
+            {% if not person.is_living %}<span class="chip bg-line/70 text-muted">In loving memory</span>{% endif %}
+            {% if person.needs_review %}<span class="chip bg-accent-soft text-accent">Details being verified</span>{% endif %}
+          </div>
+          <h1 class="mt-3 font-display text-4xl leading-tight sm:text-5xl">{{ person.full_name }}</h1>
+          {% if person.nickname or person.maiden_name %}
+            <p class="mt-1 text-muted">{% if person.nickname %}“{{ person.nickname }}”{% endif %}{% if person.nickname and person.maiden_name %} · {% endif %}{% if person.maiden_name %}née {{ person.maiden_name }}{% endif %}</p>
+          {% endif %}
+          {% with span=person|lifespan_for:user %}
+            {% if span or show_private and person.age is not None %}
+            <p class="mt-2 text-lg text-muted">{{ span }}{% if show_private and person.age is not None %}{% if span %} · {% endif %}{% if person.is_living %}{{ person.age }} years old{% else %}lived {{ person.age }} years{% endif %}{% endif %}</p>
+            {% endif %}
+          {% endwith %}
+        </div>
+      </div>
+
+      <div class="flex flex-wrap gap-2">
+        <a href="{% url 'genealogy:tree' %}?root={{ person.pk }}" class="btn btn-primary">View in tree</a>
+        {% if can_edit %}
+          <div x-data="{ open: false }" class="relative" @click.outside="open = false">
+            <button type="button" class="btn btn-secondary" @click="open = !open" :aria-expanded="open">Add relative ▾</button>
+            <div x-cloak x-show="open" x-transition.origin.top class="card absolute left-0 z-20 mt-2 w-56 p-2 sm:left-auto sm:right-0">
+              <a href="{% url 'genealogy:person_add' %}?relation=parent&of={{ person.pk }}" class="block rounded-lg px-3 py-2 text-sm hover:bg-brand-soft">New parent</a>
+              <a href="{% url 'genealogy:person_add' %}?relation=partner&of={{ person.pk }}" class="block rounded-lg px-3 py-2 text-sm hover:bg-brand-soft">New partner / spouse</a>
+              <a href="{% url 'genealogy:person_add' %}?relation=child&of={{ person.pk }}" class="block rounded-lg px-3 py-2 text-sm hover:bg-brand-soft">New child</a>
+              <a href="#link-relative" @click="open = false" class="block rounded-lg px-3 py-2 text-sm text-muted hover:bg-brand-soft">Link someone already here…</a>
+            </div>
+          </div>
+          <a href="{% url 'genealogy:person_edit' person.pk %}" class="btn btn-secondary">Edit profile</a>
+        {% endif %}
+        {% if can_delete %}<a href="{% url 'genealogy:person_delete' person.pk %}" class="btn btn-ghost text-rose hover:bg-rose-soft hover:text-rose">Delete</a>{% endif %}
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 lg:grid-cols-3 lg:px-8">
+  <div class="space-y-8 lg:col-span-2">
+    <!-- Facts -->
+    <section class="card p-6">
+      <h2 class="font-display text-2xl">At a glance</h2>
+      <dl class="mt-5 grid gap-5 sm:grid-cols-2">
+        <div>
+          <dt class="text-xs font-semibold uppercase tracking-wider text-muted">Born</dt>
+          <dd class="mt-1">
+            {% if show_private %}
+              {% if person.birth_date %}{% if person.birth_date_approx %}around {{ person.birth_date|date:"Y" }}{% else %}{{ person.birth_date|date:"j F Y" }}{% endif %}{% else %}<span class="text-muted">Date not recorded</span>{% endif %}
+              {% if person.birth_place %}<span class="block text-sm text-muted">{{ person.birth_place }}</span>{% endif %}
+            {% else %}
+              <span class="text-muted">Private for living relatives. <a class="text-brand hover:underline" href="{% url 'accounts:login' %}?next={{ request.path|urlencode }}">Sign in</a> to see.</span>
+            {% endif %}
+          </dd>
+        </div>
+        {% if not person.is_living %}
+        <div>
+          <dt class="text-xs font-semibold uppercase tracking-wider text-muted">Died</dt>
+          <dd class="mt-1">
+            {% if person.death_date %}{{ person.death_date|date:"j F Y" }}{% else %}<span class="text-muted">Date not recorded</span>{% endif %}
+            {% if person.death_place %}<span class="block text-sm text-muted">{{ person.death_place }}</span>{% endif %}
+          </dd>
+        </div>
+        {% endif %}
+        <div>
+          <dt class="text-xs font-semibold uppercase tracking-wider text-muted">Gender</dt>
+          <dd class="mt-1">{{ person.get_gender_display }}</dd>
+        </div>
+        {% if person.lineage %}
+        <div>
+          <dt class="text-xs font-semibold uppercase tracking-wider text-muted">Clan / lineage</dt>
+          <dd class="mt-1">{{ person.lineage }}</dd>
+        </div>
+        {% endif %}
+      </dl>
+    </section>
+
+    <!-- Biography -->
+    <section class="card p-6">
+      <h2 class="font-display text-2xl">Their story</h2>
+      {% if person.biography %}
+        <div class="prose prose-stone mt-4 max-w-none dark:prose-invert">{{ person.biography|linebreaks }}</div>
+      {% else %}
+        <p class="mt-3 text-muted">No biography has been written yet.{% if can_edit %} <a href="{% url 'genealogy:person_edit' person.pk %}" class="text-brand hover:underline">Write one</a>.{% endif %}</p>
+      {% endif %}
+    </section>
+
+    <!-- Timeline -->
+    <section id="timeline" class="card scroll-mt-24 p-6">
+      <div class="flex items-center justify-between gap-4">
+        <h2 class="font-display text-2xl">Life timeline</h2>
+      </div>
+      {% if events %}
+        <ol class="timeline mt-6 space-y-6">
+          {% for event in events %}
+          <li class="relative pl-10">
+            <span class="absolute left-0 top-0.5 flex h-6 w-6 items-center justify-center rounded-full border-2 border-surface bg-brand-soft ring-2 ring-brand/30"><span class="h-2 w-2 rounded-full bg-brand"></span></span>
+            <div class="flex flex-wrap items-baseline justify-between gap-x-4">
+              <p class="font-semibold">{{ event.heading }}</p>
+              <p class="text-sm text-muted">{% if event.date %}{{ event.date|date:"j M Y" }}{% else %}Date unknown{% endif %}</p>
+            </div>
+            {% if event.place %}<p class="text-sm text-muted">{{ event.place }}</p>{% endif %}
+            {% if event.description %}<p class="mt-1 text-sm">{{ event.description|linebreaksbr }}</p>{% endif %}
+            {% if perms.genealogy.delete_lifeevent %}
+              <form method="post" action="{% url 'genealogy:event_delete' event.pk %}" x-data="{ confirming: false }" class="mt-1">
+                {% csrf_token %}
+                <button type="button" x-show="!confirming" @click="confirming = true" class="text-xs text-muted hover:text-rose">Remove</button>
+                <span x-cloak x-show="confirming" class="text-xs"><button class="font-semibold text-rose">Confirm removal</button> · <button type="button" @click="confirming = false" class="text-muted">Cancel</button></span>
+              </form>
+            {% endif %}
+          </li>
+          {% endfor %}
+        </ol>
+      {% else %}
+        <p class="mt-3 text-muted">No life events recorded yet.</p>
+      {% endif %}
+
+      {% if event_form %}
+      <details class="group mt-6 rounded-2xl border border-line p-4">
+        <summary class="cursor-pointer list-none text-sm font-semibold text-brand">+ Add a life event</summary>
+        <form method="post" action="{% url 'genealogy:event_add' person.pk %}" class="mt-4 grid gap-4 sm:grid-cols-2">
+          {% csrf_token %}
+          {% include "includes/field.html" with field=event_form.event_type %}
+          {% include "includes/field.html" with field=event_form.title %}
+          {% include "includes/field.html" with field=event_form.date %}
+          {% include "includes/field.html" with field=event_form.place %}
+          {% include "includes/field.html" with field=event_form.description class="sm:col-span-2" %}
+          <div class="sm:col-span-2"><button class="btn btn-primary btn-sm">Save event</button></div>
+        </form>
+      </details>
+      {% endif %}
+    </section>
+
+    <!-- Photos -->
+    <section class="card p-6">
+      <div class="flex items-center justify-between gap-4">
+        <h2 class="font-display text-2xl">Photos</h2>
+        <div class="flex gap-2">
+          {% if perms.gallery.add_photo %}<a href="{% url 'gallery:photo_add' %}?person={{ person.pk }}" class="btn btn-secondary btn-sm">Add photo</a>{% endif %}
+          {% if photos %}<a href="{% url 'gallery:photo_list' %}?person={{ person.pk }}" class="btn btn-ghost btn-sm">See all</a>{% endif %}
+        </div>
+      </div>
+      {% if photos %}
+        <div class="mt-5 grid grid-cols-3 gap-2 sm:grid-cols-4">
+          {% for photo in photos %}
+            <a href="{% url 'gallery:photo_list' %}?person={{ person.pk }}" class="overflow-hidden rounded-xl">
+              <img src="{{ photo.image.url }}" alt="{{ photo }}" loading="lazy" class="aspect-square w-full object-cover transition hover:scale-105">
+            </a>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="mt-3 text-muted">No photos tagged with {{ person.first_name }} yet.</p>
+      {% endif %}
+    </section>
+  </div>
+
+  <aside class="space-y-8">
+    <!-- Family -->
+    <section class="card p-6">
+      <h2 class="font-display text-2xl">Family</h2>
+
+      <h3 class="mt-5 text-xs font-semibold uppercase tracking-wider text-muted">Parents</h3>
+      {% if parent_links %}
+        <ul class="divide-y divide-line">
+          {% for link in parent_links %}
+            {% include "genealogy/_relative_row.html" with relative=link.parent link=link note="" unlink_kind="parentchild" unlink_id=link.pk %}
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="py-2 text-sm text-muted">Not recorded</p>
+      {% endif %}
+
+      <h3 class="mt-5 text-xs font-semibold uppercase tracking-wider text-muted">Partners &amp; children</h3>
+      {% if families or other_children %}
+        {% for family in families %}
+          <div class="mt-2 rounded-2xl bg-bg/70 px-3 py-1">
+            <ul>
+              {% if family.union.is_current %}
+                {% include "genealogy/_relative_row.html" with relative=family.partner link=None note=family.union.get_union_type_display unlink_kind="union" unlink_id=family.union.pk %}
+              {% else %}
+                {% include "genealogy/_relative_row.html" with relative=family.partner link=None note=family.union.get_end_reason_display|default:"Ended" unlink_kind="union" unlink_id=family.union.pk %}
+              {% endif %}
+            </ul>
+            {% if family.children %}
+              <ul class="ml-4 border-l-2 border-line pl-3">
+                {% for link in family.children %}
+                  {% include "genealogy/_relative_row.html" with relative=link.child link=link note="" unlink_kind="parentchild" unlink_id=link.pk %}
+                {% endfor %}
+              </ul>
+            {% endif %}
+          </div>
+        {% endfor %}
+        {% if other_children %}
+          <p class="mt-3 text-xs text-muted">Children (other parent not recorded)</p>
+          <ul class="divide-y divide-line">
+            {% for link in other_children %}
+              {% include "genealogy/_relative_row.html" with relative=link.child link=link note="" unlink_kind="parentchild" unlink_id=link.pk %}
+            {% endfor %}
+          </ul>
+        {% endif %}
+      {% else %}
+        <p class="py-2 text-sm text-muted">Not recorded</p>
+      {% endif %}
+
+      <h3 class="mt-5 text-xs font-semibold uppercase tracking-wider text-muted">Siblings</h3>
+      {% if siblings %}
+        <ul class="divide-y divide-line">
+          {% for sibling in siblings %}
+            {% if sibling.half %}
+              {% include "genealogy/_relative_row.html" with relative=sibling.person link=None note="Half-sibling" unlink_id=None %}
+            {% else %}
+              {% include "genealogy/_relative_row.html" with relative=sibling.person link=None note="" unlink_id=None %}
+            {% endif %}
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="py-2 text-sm text-muted">None recorded</p>
+      {% endif %}
+
+      {% if link_form %}
+      <div id="link-relative" class="mt-6 scroll-mt-24 border-t border-line pt-5" x-data="{ relation: 'parent' }">
+        <h3 class="text-sm font-semibold">Link someone already in the tree</h3>
+        <form method="post" action="{% url 'genealogy:person_link' person.pk %}" class="mt-3 space-y-3">
+          {% csrf_token %}
+          <div>
+            <label class="label" for="link-relative-search">Person</label>
+            {% include "includes/person_picker.html" with name="relative" exclude=person.pk input_id="link-relative-search" %}
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="label" for="{{ link_form.relation.id_for_label }}">Add as</label>
+              <select name="relation" id="{{ link_form.relation.id_for_label }}" class="input" x-model="relation">
+                {% for value, label in link_form.fields.relation.choices %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+              </select>
+            </div>
+            <div x-show="relation !== 'partner'">
+              <label class="label" for="{{ link_form.relationship_type.id_for_label }}">Type</label>
+              {{ link_form.relationship_type }}
+            </div>
+            <div x-show="relation === 'partner'" x-cloak>
+              <label class="label" for="{{ link_form.union_type.id_for_label }}">Union</label>
+              {{ link_form.union_type }}
+            </div>
+          </div>
+          <button class="btn btn-primary btn-sm w-full">Add relationship</button>
+        </form>
+      </div>
+      {% endif %}
+    </section>
+
+    <!-- Mini tree -->
+    <section class="card overflow-hidden">
+      <div class="flex items-center justify-between p-5 pb-3">
+        <h2 class="font-display text-xl">Close family</h2>
+        <a href="{% url 'genealogy:tree' %}?root={{ person.pk }}" class="text-sm font-medium text-brand hover:underline">Open full tree →</a>
+      </div>
+      <div id="mini-tree" class="tree-canvas h-80 border-t border-line" role="img" aria-label="Diagram of {{ person.full_name }}'s close family"></div>
+    </section>
+
+    <!-- Relationship -->
+    <section class="card p-6">
+      <h2 class="font-display text-xl">How are you related?</h2>
+      <p class="mt-1 text-sm text-muted">Compare {{ person.first_name }} with anyone else in the family.</p>
+      <form method="get" action="{% url 'genealogy:relationship' %}" class="mt-4 space-y-3">
+        <input type="hidden" name="a" value="{{ person.pk }}">
+        {% include "includes/person_picker.html" with name="b" exclude=person.pk placeholder="Choose another person…" %}
+        <button class="btn btn-secondary btn-sm w-full">Find relationship</button>
+      </form>
+    </section>
+  </aside>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.30.2/cytoscape.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dagre/0.8.5/dagre.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/cytoscape-dagre@2.5.0/cytoscape-dagre.min.js"></script>
+<script src="{% static 'genealogy/js/tree.js' %}"></script>
+<script>
+  (function () {
+    const container = document.getElementById("mini-tree");
+    const personId = {{ person.pk }};
+    const graph = FamilyGraph.create(container, {
+      endpoint: "{% url 'genealogy:api_tree' %}",
+      mini: true,
+      onSelect: (data) => {
+        if (data && data.pk !== personId) window.location.href = data.url;
+      },
+    });
+    graph.load({ root: personId, up: 1, down: 1 }).catch((error) => {
+      console.error(error);
+      container.innerHTML = '<p class="p-6 text-sm text-muted">The family diagram could not be loaded.</p>';
+    });
+  })();
+</script>
+{% endblock %}

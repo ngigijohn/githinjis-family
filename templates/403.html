@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}Not allowed · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+<div class="paper flex min-h-[70vh] items-center justify-center px-4 py-16 text-center">
+  <div>
+    <p class="font-display text-8xl text-accent/40">403</p>
+    <h1 class="mt-2 font-display text-4xl">You don't have permission for that</h1>
+    <p class="mt-3 text-muted">Ask a family administrator if you need editing or deleting rights.</p>
+    <div class="mt-8 flex justify-center gap-3">
+      <a href="{% url 'genealogy:home' %}" class="btn btn-primary">Go home</a>
+      <a href="{% url 'genealogy:contact' %}" class="btn btn-secondary">Contact admins</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

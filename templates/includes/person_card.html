@@ -1,0 +1,9 @@
+{% load family %}
+<a href="{{ person.get_absolute_url }}" class="group card flex items-center gap-4 p-4 transition hover:-translate-y-0.5 hover:border-brand/40">
+  {% avatar person "md" %}
+  <div class="min-w-0">
+    <p class="truncate font-semibold text-ink group-hover:text-brand">{{ person.display_name }}</p>
+    <p class="truncate text-sm text-muted">{{ person|lifespan_for:user|default:"Dates not recorded" }}</p>
+    {% if person.lineage %}<span class="chip mt-1.5">{{ person.lineage }}</span>{% endif %}
+  </div>
+</a>

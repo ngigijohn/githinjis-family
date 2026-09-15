@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}Page not found · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+<div class="paper flex min-h-[70vh] items-center justify-center px-4 py-16 text-center">
+  <div>
+    <p class="font-display text-8xl text-brand/30">404</p>
+    <h1 class="mt-2 font-display text-4xl">This branch doesn't exist</h1>
+    <p class="mt-3 text-muted">The page you were looking for may have been moved or removed.</p>
+    <div class="mt-8 flex justify-center gap-3">
+      <a href="{% url 'genealogy:home' %}" class="btn btn-primary">Go home</a>
+      <a href="{% url 'genealogy:person_list' %}" class="btn btn-secondary">Browse people</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

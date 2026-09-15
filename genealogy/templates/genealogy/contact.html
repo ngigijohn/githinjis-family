@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}Contact · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+<div class="mx-auto grid max-w-6xl gap-12 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:px-8">
+  <div>
+    <p class="eyebrow">Get in touch</p>
+    <h1 class="mt-3 font-display text-4xl sm:text-5xl">Help us get it right</h1>
+    <p class="mt-5 text-lg leading-relaxed text-muted">Spotted a misspelt name, a wrong date or a missing relative? Have a story or photograph to share? Send a message and the family administrators will follow up.</p>
+    <ul class="mt-8 space-y-4 text-sm">
+      <li class="flex gap-3"><span class="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-brand-soft text-brand">✎</span><span><span class="font-semibold">Corrections</span><br><span class="text-muted">Tell us which profile, and what should change.</span></span></li>
+      <li class="flex gap-3"><span class="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-accent-soft text-accent">＋</span><span><span class="font-semibold">Missing relatives</span><br><span class="text-muted">Tell us who they are and how they connect to someone already in the tree.</span></span></li>
+      <li class="flex gap-3"><span class="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-rose-soft text-rose">♥</span><span><span class="font-semibold">Stories &amp; memories</span><br><span class="text-muted">These make the archive come alive.</span></span></li>
+    </ul>
+  </div>
+
+  <form method="post" class="card space-y-5 p-6 sm:p-8">
+    {% csrf_token %}
+    {% include "includes/form_errors.html" %}
+    <div class="grid gap-5 sm:grid-cols-2">
+      {% include "includes/field.html" with field=form.name %}
+      {% include "includes/field.html" with field=form.email %}
+    </div>
+    {% include "includes/field.html" with field=form.message %}
+    <button class="btn btn-primary w-full">Send message</button>
+  </form>
+</div>
+{% endblock %}

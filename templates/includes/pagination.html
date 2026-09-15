@@ -1,0 +1,12 @@
+{% load family %}
+{% if page_obj.paginator.num_pages > 1 %}
+<nav class="mt-10 flex items-center justify-between gap-4" aria-label="Pagination">
+  {% if page_obj.has_previous %}
+    <a class="btn btn-secondary btn-sm" href="?{% query_with page=page_obj.previous_page_number %}">← Previous</a>
+  {% else %}<span></span>{% endif %}
+  <p class="text-sm text-muted">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</p>
+  {% if page_obj.has_next %}
+    <a class="btn btn-secondary btn-sm" href="?{% query_with page=page_obj.next_page_number %}">Next →</a>
+  {% else %}<span></span>{% endif %}
+</nav>
+{% endif %}

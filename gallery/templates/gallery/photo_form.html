@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}{% if object %}Edit photo{% else %}Upload a photo{% endif %} · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-3xl px-4 py-10 sm:px-6">
+  <a href="{% url 'gallery:photo_list' %}" class="text-sm text-muted hover:text-brand">← Back to gallery</a>
+  <h1 class="mt-4 font-display text-4xl">{% if object %}Edit photo{% else %}Upload a photo{% endif %}</h1>
+
+  <form method="post" enctype="multipart/form-data" class="card mt-8 space-y-6 p-6 sm:p-8"
+        x-data="{ src: '{% if object.image %}{{ object.image.url }}{% endif %}', q: '', preview(e) { const f = e.target.files[0]; if (f) this.src = URL.createObjectURL(f); } }">
+    {% csrf_token %}
+    {% include "includes/form_errors.html" %}
+
+    <div class="grid gap-6 sm:grid-cols-[200px_1fr]">
+      <div class="flex aspect-square items-center justify-center overflow-hidden rounded-2xl border border-dashed border-line bg-bg">
+        <img x-show="src" :src="src" alt="Preview" class="h-full w-full object-cover">
+        <span x-show="!src" class="px-4 text-center text-xs text-muted">Preview appears here</span>
+      </div>
+      <div class="space-y-4">
+        {% include "includes/field.html" with field=form.image %}
+        {% include "includes/field.html" with field=form.caption %}
+        {% include "includes/field.html" with field=form.date_taken %}
+      </div>
+    </div>
+    {% include "includes/field.html" with field=form.description %}
+
+    <div>
+      <p class="label">{{ form.people.label }}</p>
+      <input type="search" x-model="q" class="input" placeholder="Filter names…">
+      <div class="mt-2 grid max-h-64 gap-1 overflow-auto rounded-xl border border-line p-2 sm:grid-cols-2">
+        {% for choice in form.people %}
+          <label class="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-brand-soft" x-show="'{{ choice.choice_label|lower|escapejs }}'.includes(q.toLowerCase())">
+            {{ choice.tag }}<span class="text-sm">{{ choice.choice_label }}</span>
+          </label>
+        {% empty %}
+          <p class="p-2 text-sm text-muted">No family members yet.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-3">
+      <button class="btn btn-primary px-6">{% if object %}Save changes{% else %}Upload{% endif %}</button>
+      <a href="{% url 'gallery:photo_list' %}" class="btn btn-ghost">Cancel</a>
+      {% if object and perms.gallery.delete_photo %}<a href="{% url 'gallery:photo_delete' object.pk %}" class="btn btn-ghost ml-auto text-rose hover:bg-rose-soft hover:text-rose">Delete photo</a>{% endif %}
+    </div>
+  </form>
+</div>
+{% endblock %}

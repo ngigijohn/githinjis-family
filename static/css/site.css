@@ -1,0 +1,80 @@
+/* Design tokens. Tailwind colours reference these, so dark mode only swaps values here. */
+:root {
+  --bg: 250 246 238;
+  --surface: 255 255 255;
+  --ink: 29 39 36;
+  --muted: 96 108 102;
+  --line: 229 221 206;
+  --brand: 17 94 89;
+  --brand-strong: 11 70 66;
+  --brand-soft: 222 239 234;
+  --on-brand: 255 255 255;
+  --accent: 184 116 22;
+  --accent-soft: 250 237 211;
+  --rose: 178 70 96;
+  --rose-soft: 249 228 233;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: 15 21 20;
+    --surface: 23 31 30;
+    --ink: 236 232 223;
+    --muted: 160 170 165;
+    --line: 46 58 55;
+    --brand: 96 196 178;
+    --brand-strong: 134 214 200;
+    --brand-soft: 26 52 49;
+    --on-brand: 10 26 24;
+    --accent: 236 178 86;
+    --accent-soft: 56 43 22;
+    --rose: 236 146 166;
+    --rose-soft: 58 31 39;
+    color-scheme: dark;
+  }
+}
+
+[x-cloak] { display: none !important; }
+
+html { scroll-behavior: smooth; }
+
+::selection { background: rgb(var(--accent) / 0.25); }
+
+/* Subtle paper texture for hero sections */
+.paper {
+  background-image:
+    radial-gradient(circle at 20% 10%, rgb(var(--accent) / 0.10), transparent 45%),
+    radial-gradient(circle at 85% 30%, rgb(var(--brand) / 0.10), transparent 40%);
+}
+
+.tree-canvas {
+  background-color: rgb(var(--bg));
+  background-image: radial-gradient(rgb(var(--line)) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+.polaroid {
+  background: rgb(var(--surface));
+  padding: 0.75rem 0.75rem 2.75rem;
+  box-shadow: 0 30px 60px -30px rgb(0 0 0 / 0.35), 0 2px 6px rgb(0 0 0 / 0.08);
+}
+
+/* Timeline rail */
+.timeline { position: relative; }
+.timeline::before {
+  content: "";
+  position: absolute;
+  left: 0.6875rem;
+  top: 0.5rem;
+  bottom: 0.5rem;
+  width: 2px;
+  background: rgb(var(--line));
+}
+
+input[type="range"] { accent-color: rgb(var(--brand)); }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}
