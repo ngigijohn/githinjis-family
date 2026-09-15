@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}{% if object %}Edit {{ object.full_name }}{% else %}Add a family member{% endif %} · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-3xl px-4 py-10 sm:px-6">
+  <a href="{% if object %}{{ object.get_absolute_url }}{% elif relative %}{{ relative.get_absolute_url }}{% else %}{% url 'genealogy:person_list' %}{% endif %}" class="text-sm text-muted hover:text-brand">← Back</a>
+  <h1 class="mt-4 font-display text-4xl">{% if object %}Edit {{ object.full_name }}{% else %}Add a family member{% endif %}</h1>
+  <p class="mt-2 text-muted">Only the first name is required. Add whatever you know; details can be filled in later.</p>
+
+  <form method="post" enctype="multipart/form-data" class="mt-8 space-y-6"
+        x-data="{ relation: '{{ form.relation.value|default:''|escapejs }}', living: {{ form.is_living.value|yesno:'true,false' }} }">
+    {% csrf_token %}
+    {% include "includes/form_errors.html" %}
+
+    {% if relative %}
+    <section class="card border-brand/30 p-6">
+      <input type="hidden" name="of" value="{{ relative.pk }}">
+      <h2 class="font-display text-xl">Connection</h2>
+      <p class="mt-1 text-sm text-muted">This new person will be linked to <a class="font-semibold text-brand hover:underline" href="{{ relative.get_absolute_url }}">{{ relative.display_name }}</a>.</p>
+      <div class="mt-5 grid gap-4 sm:grid-cols-2">
+        {% include "includes/field.html" with field=form.relation %}
+        <div x-show="relation === 'child' || relation === 'parent'">{% include "includes/field.html" with field=form.relationship_type %}</div>
+        <div x-show="relation === 'partner'" x-cloak>{% include "includes/field.html" with field=form.union_type %}</div>
+        {% if form.union.field.queryset.exists %}
+          <div x-show="relation === 'child'" x-cloak class="sm:col-span-2">{% include "includes/field.html" with field=form.union %}</div>
+        {% endif %}
+      </div>
+    </section>
+    {% endif %}
+
+    <section class="card p-6">
+      <h2 class="font-display text-xl">Name</h2>
+      <div class="mt-5 grid gap-4 sm:grid-cols-3">
+        {% include "includes/field.html" with field=form.first_name %}
+        {% include "includes/field.html" with field=form.middle_name %}
+        {% include "includes/field.html" with field=form.last_name %}
+      </div>
+      <div class="mt-4 grid gap-4 sm:grid-cols-3">
+        {% include "includes/field.html" with field=form.nickname %}
+        {% include "includes/field.html" with field=form.maiden_name %}
+        {% include "includes/field.html" with field=form.gender %}
+      </div>
+    </section>
+
+    <section class="card p-6">
+      <h2 class="font-display text-xl">Life</h2>
+      <div class="mt-5 grid gap-4 sm:grid-cols-2">
+        {% include "includes/field.html" with field=form.birth_date %}
+        {% include "includes/field.html" with field=form.birth_place %}
+        {% include "includes/field.html" with field=form.birth_date_approx class="sm:col-span-2" %}
+        {% include "includes/field.html" with field=form.is_living class="sm:col-span-2" %}
+      </div>
+      <div x-show="!living" x-cloak class="mt-4 grid gap-4 sm:grid-cols-2">
+        {% include "includes/field.html" with field=form.death_date %}
+        {% include "includes/field.html" with field=form.death_place %}
+      </div>
+    </section>
+
+    <section class="card p-6">
+      <h2 class="font-display text-xl">Story</h2>
+      <div class="mt-5 grid gap-4">
+        {% include "includes/field.html" with field=form.lineage %}
+        {% include "includes/field.html" with field=form.photo %}
+        {% include "includes/field.html" with field=form.biography %}
+        {% include "includes/field.html" with field=form.needs_review %}
+      </div>
+    </section>
+
+    <div class="flex flex-wrap items-center gap-3">
+      <button class="btn btn-primary px-6">{% if object %}Save changes{% else %}Add to the family{% endif %}</button>
+      <a href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'genealogy:person_list' %}{% endif %}" class="btn btn-ghost">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

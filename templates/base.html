@@ -1,0 +1,168 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ SITE_NAME }}{% endblock %}</title>
+  <meta name="description" content="{% block meta_description %}The family tree, stories and photographs of the {{ SITE_NAME }}.{% endblock %}">
+  <link rel="icon" href="{% static 'img/favicon.svg' %}" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'css/site.css' %}">
+  {# Tailwind's Play CDN keeps the project build-free; see README for a production CSS build. #}
+  <script src="https://cdn.tailwindcss.com/3.4.17?plugins=forms,typography"></script>
+  <script>
+    const token = (name) => `rgb(var(--${name}) / <alpha-value>)`;
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            bg: token("bg"), surface: token("surface"), ink: token("ink"), muted: token("muted"), line: token("line"),
+            brand: token("brand"), "brand-strong": token("brand-strong"), "brand-soft": token("brand-soft"), "on-brand": token("on-brand"),
+            accent: token("accent"), "accent-soft": token("accent-soft"), rose: token("rose"), "rose-soft": token("rose-soft"),
+          },
+          fontFamily: {
+            display: ['"Playfair Display"', "Georgia", "serif"],
+            sans: ["Inter", "system-ui", "-apple-system", "Segoe UI", "sans-serif"],
+          },
+          boxShadow: {
+            soft: "0 1px 2px rgb(0 0 0 / 0.04), 0 12px 32px -16px rgb(0 0 0 / 0.18)",
+          },
+        },
+      },
+    };
+  </script>
+  <style type="text/tailwindcss">
+    @layer components {
+      .btn { @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full px-5 py-2.5 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 disabled:cursor-not-allowed disabled:opacity-50; }
+      .btn-primary { @apply bg-brand text-on-brand shadow-soft hover:bg-brand-strong; }
+      .btn-secondary { @apply border border-line bg-surface text-ink hover:border-brand/50 hover:text-brand; }
+      .btn-ghost { @apply text-muted hover:bg-brand-soft hover:text-brand; }
+      .btn-danger { @apply bg-rose text-white hover:opacity-90; }
+      .btn-sm { @apply px-3.5 py-1.5 text-xs; }
+      .card { @apply rounded-2xl border border-line bg-surface shadow-soft; }
+      .input { @apply block w-full rounded-xl border-line bg-surface px-3.5 py-2.5 text-sm text-ink placeholder:text-muted/60 focus:border-brand focus:ring-brand/30; }
+      .label { @apply mb-1.5 block text-sm font-medium text-ink; }
+      .chip { @apply inline-flex items-center gap-1.5 rounded-full bg-brand-soft px-2.5 py-0.5 text-xs font-medium text-brand; }
+      .eyebrow { @apply text-xs font-semibold uppercase tracking-[0.18em] text-accent; }
+      .nav-link { @apply rounded-full px-3.5 py-2 text-sm font-medium text-muted transition hover:bg-brand-soft/60 hover:text-ink; }
+      .nav-link-active { @apply bg-brand-soft text-brand hover:text-brand; }
+      .section-title { @apply font-display text-3xl text-ink sm:text-4xl; }
+    }
+  </style>
+  <script src="{% static 'genealogy/js/picker.js' %}"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
+  {% block head %}{% endblock %}
+</head>
+<body class="flex min-h-screen flex-col bg-bg font-sans text-ink antialiased {% block body_class %}{% endblock %}">
+  <a href="#main" class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 btn btn-primary">Skip to content</a>
+
+  <header x-data="{ open: false }" class="sticky top-0 z-40 border-b border-line/70 bg-bg/85 backdrop-blur-md">
+    <div class="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+      <a href="{% url 'genealogy:home' %}" class="flex items-center gap-2.5">
+        <img src="{% static 'img/favicon.svg' %}" alt="" class="h-9 w-9">
+        <span class="font-display text-xl font-semibold tracking-tight">{{ SITE_NAME }}</span>
+      </a>
+
+      <nav class="hidden items-center gap-1 lg:flex" aria-label="Main">
+        {% for item in nav_items %}
+          <a href="{% url item.url_name %}" class="nav-link {% if nav_section == item.section %}nav-link-active{% endif %}"{% if nav_section == item.section %} aria-current="page"{% endif %}>{{ item.label }}</a>
+        {% endfor %}
+      </nav>
+
+      <div class="hidden items-center gap-2 lg:flex">
+        {% if user.is_authenticated %}
+          {% if perms.genealogy.add_person %}
+            <a href="{% url 'genealogy:person_add' %}" class="btn btn-primary btn-sm">
+              <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 4a1 1 0 0 1 1 1v4h4a1 1 0 1 1 0 2h-4v4a1 1 0 1 1-2 0v-4H5a1 1 0 1 1 0-2h4V5a1 1 0 0 1 1-1Z"/></svg>
+              Add person
+            </a>
+          {% endif %}
+          <div x-data="{ menu: false }" class="relative" @click.outside="menu = false">
+            <button type="button" @click="menu = !menu" class="flex h-9 w-9 items-center justify-center rounded-full bg-accent-soft text-sm font-semibold text-accent" :aria-expanded="menu" aria-label="Account menu">
+              {{ user.first_name|default:user.username|first|upper }}
+            </button>
+            <div x-cloak x-show="menu" x-transition.origin.top.right class="card absolute right-0 mt-2 w-56 p-2">
+              <p class="px-3 py-2 text-xs text-muted">Signed in as <span class="font-semibold text-ink">{{ user.get_username }}</span></p>
+              {% if user.is_staff %}<a href="{% url 'admin:index' %}" class="block rounded-lg px-3 py-2 text-sm hover:bg-brand-soft">Administration</a>{% endif %}
+              <a href="{% url 'genealogy:contact' %}" class="block rounded-lg px-3 py-2 text-sm hover:bg-brand-soft">Contact admins</a>
+              <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}
+                <button class="block w-full rounded-lg px-3 py-2 text-left text-sm text-rose hover:bg-rose-soft">Sign out</button>
+              </form>
+            </div>
+          </div>
+        {% else %}
+          <a href="{% url 'accounts:login' %}?next={{ request.path|urlencode }}" class="btn btn-ghost btn-sm">Sign in</a>
+          <a href="{% url 'accounts:signup' %}" class="btn btn-primary btn-sm">Join the family</a>
+        {% endif %}
+      </div>
+
+      <button type="button" class="rounded-full p-2 text-ink hover:bg-brand-soft lg:hidden" @click="open = !open" :aria-expanded="open" aria-label="Toggle navigation">
+        <svg x-show="!open" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" d="M4 7h16M4 12h16M4 17h16"/></svg>
+        <svg x-cloak x-show="open" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+
+    <div x-cloak x-show="open" x-transition class="border-t border-line bg-bg px-4 pb-6 pt-3 lg:hidden">
+      <nav class="flex flex-col gap-1" aria-label="Mobile">
+        <a href="{% url 'genealogy:home' %}" class="nav-link {% if nav_section == 'home' %}nav-link-active{% endif %}">Home</a>
+        {% for item in nav_items %}
+          <a href="{% url item.url_name %}" class="nav-link {% if nav_section == item.section %}nav-link-active{% endif %}">{{ item.label }}</a>
+        {% endfor %}
+        <a href="{% url 'genealogy:contact' %}" class="nav-link {% if nav_section == 'contact' %}nav-link-active{% endif %}">Contact</a>
+      </nav>
+      <div class="mt-4 flex flex-wrap gap-2 border-t border-line pt-4">
+        {% if user.is_authenticated %}
+          {% if perms.genealogy.add_person %}<a href="{% url 'genealogy:person_add' %}" class="btn btn-primary btn-sm">Add person</a>{% endif %}
+          {% if user.is_staff %}<a href="{% url 'admin:index' %}" class="btn btn-secondary btn-sm">Administration</a>{% endif %}
+          <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}<button class="btn btn-ghost btn-sm">Sign out</button></form>
+        {% else %}
+          <a href="{% url 'accounts:login' %}" class="btn btn-secondary btn-sm">Sign in</a>
+          <a href="{% url 'accounts:signup' %}" class="btn btn-primary btn-sm">Join the family</a>
+        {% endif %}
+      </div>
+    </div>
+  </header>
+
+  {% include "includes/messages.html" %}
+
+  <main id="main" class="flex-1">
+    {% block content %}{% endblock %}
+  </main>
+
+  {% block footer %}
+  <footer class="mt-24 border-t border-line bg-surface">
+    <div class="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:px-6 md:grid-cols-3 lg:px-8">
+      <div>
+        <div class="flex items-center gap-2.5">
+          <img src="{% static 'img/favicon.svg' %}" alt="" class="h-8 w-8">
+          <span class="font-display text-lg font-semibold">{{ SITE_NAME }}</span>
+        </div>
+        <p class="mt-3 max-w-xs text-sm text-muted">Remembering where we come from, so the next generation knows who they are.</p>
+      </div>
+      <div>
+        <h2 class="text-sm font-semibold">Explore</h2>
+        <ul class="mt-3 space-y-2 text-sm text-muted">
+          <li><a class="hover:text-brand" href="{% url 'genealogy:tree' %}">Family tree</a></li>
+          <li><a class="hover:text-brand" href="{% url 'genealogy:person_list' %}">People directory</a></li>
+          <li><a class="hover:text-brand" href="{% url 'genealogy:relationship' %}">Relationship finder</a></li>
+          <li><a class="hover:text-brand" href="{% url 'gallery:photo_list' %}">Photo gallery</a></li>
+        </ul>
+      </div>
+      <div>
+        <h2 class="text-sm font-semibold">Contribute</h2>
+        <ul class="mt-3 space-y-2 text-sm text-muted">
+          <li><a class="hover:text-brand" href="{% url 'genealogy:about' %}">About this project</a></li>
+          <li><a class="hover:text-brand" href="{% url 'genealogy:contact' %}">Send a correction</a></li>
+          {% if not user.is_authenticated %}<li><a class="hover:text-brand" href="{% url 'accounts:signup' %}">Request an editor account</a></li>{% endif %}
+        </ul>
+      </div>
+    </div>
+    <div class="border-t border-line py-5 text-center text-xs text-muted">© {% now "Y" %} {{ SITE_NAME }} · Built with love, one branch at a time.</div>
+  </footer>
+  {% endblock %}
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>

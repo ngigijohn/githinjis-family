@@ -1,0 +1,13 @@
+{% if messages %}
+<div class="pointer-events-none fixed inset-x-0 top-20 z-50 flex flex-col items-center gap-2 px-4" aria-live="polite">
+  {% for message in messages %}
+    <div x-data="{ show: true }" x-init="setTimeout(() => show = false, 6000)" x-show="show" x-transition.opacity.duration.300ms
+         class="pointer-events-auto flex w-full max-w-md items-start gap-3 rounded-2xl border px-4 py-3 text-sm shadow-soft
+                {% if message.level_tag == 'error' %}border-rose/30 bg-rose-soft text-rose{% elif message.level_tag == 'warning' %}border-accent/30 bg-accent-soft text-accent{% else %}border-brand/25 bg-surface text-ink{% endif %}">
+      <span class="mt-0.5 h-2 w-2 flex-none rounded-full {% if message.level_tag == 'error' %}bg-rose{% elif message.level_tag == 'warning' %}bg-accent{% else %}bg-brand{% endif %}"></span>
+      <p class="flex-1">{{ message }}</p>
+      <button type="button" @click="show = false" class="text-muted hover:text-ink" aria-label="Dismiss">✕</button>
+    </div>
+  {% endfor %}
+</div>
+{% endif %}

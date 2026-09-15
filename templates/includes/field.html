@@ -1,0 +1,18 @@
+{% if field.is_hidden %}{{ field }}{% else %}
+<div class="{{ class }}">
+  {% if field.widget_type == "checkbox" %}
+    <div class="flex items-start gap-3">
+      {{ field }}
+      <div>
+        <label for="{{ field.id_for_label }}" class="text-sm font-medium text-ink">{{ field.label }}</label>
+        {% if field.help_text %}<p class="text-xs text-muted">{{ field.help_text }}</p>{% endif %}
+      </div>
+    </div>
+  {% else %}
+    <label for="{{ field.id_for_label }}" class="label">{{ field.label }}{% if field.field.required %} <span class="text-rose" aria-hidden="true">*</span>{% endif %}</label>
+    {{ field }}
+    {% if field.help_text %}<div class="mt-1.5 text-xs text-muted [&_ul]:list-disc [&_ul]:pl-4">{{ field.help_text|safe }}</div>{% endif %}
+  {% endif %}
+  {% for error in field.errors %}<p class="mt-1.5 text-xs font-medium text-rose">{{ error }}</p>{% endfor %}
+</div>
+{% endif %}

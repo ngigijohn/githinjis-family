@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% load family %}
+
+{% block title %}How are we related? · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+<section class="paper border-b border-line">
+  <div class="mx-auto max-w-4xl px-4 py-14 text-center sm:px-6">
+    <p class="eyebrow">Kinship finder</p>
+    <h1 class="mt-3 font-display text-4xl sm:text-5xl">How are we related?</h1>
+    <p class="mx-auto mt-4 max-w-2xl text-muted">Choose two people. We'll trace the family lines back to their closest common ancestors and name the relationship, from brother or sister to third cousin twice removed.</p>
+
+    <form method="get" class="card mt-10 grid gap-4 p-5 text-left md:grid-cols-[1fr_auto_1fr_auto] md:items-end">
+      <div>
+        <label class="label" for="rel-a">First person</label>
+        {% include "includes/person_picker.html" with name="a" value=a.pk label=a.display_name input_id="rel-a" %}
+      </div>
+      <div class="hidden pb-3 text-xl text-muted md:block" aria-hidden="true">⇄</div>
+      <div>
+        <label class="label" for="rel-b">Second person</label>
+        {% include "includes/person_picker.html" with name="b" value=b.pk label=b.display_name input_id="rel-b" %}
+      </div>
+      <button class="btn btn-primary">Find relationship</button>
+    </form>
+  </div>
+</section>
+
+<div class="mx-auto max-w-4xl px-4 py-12 sm:px-6">
+  {% if result %}
+    <div class="card overflow-hidden">
+      <div class="px-6 py-10 text-center {% if result.rel.found %}bg-brand-soft/60{% else %}bg-accent-soft/60{% endif %}">
+        {% if result.rel.found %}
+          <p class="eyebrow">{{ b.first_name }} is {{ a.first_name }}'s</p>
+          <p class="mt-3 font-display text-4xl text-brand first-letter:uppercase sm:text-5xl">{{ result.rel.label }}</p>
+        {% else %}
+          <p class="font-display text-3xl">Not connected yet</p>
+        {% endif %}
+        <p class="mt-4 text-muted">{{ result.sentence }}</p>
+        {% if result.rel.kind != "self" %}
+          <a href="?a={{ b.pk }}&b={{ a.pk }}" class="mt-4 inline-block text-sm font-medium text-brand hover:underline">⇄ See it the other way round</a>
+        {% endif %}
+      </div>
+
+      {% if result.path|length > 1 %}
+        <div class="border-t border-line p-6">
+          <h2 class="text-sm font-semibold">How the family line connects</h2>
+          <ol class="mt-4 flex flex-wrap items-center gap-2">
+            {% for step in result.path %}
+              <li class="flex items-center gap-2">
+                {% if not forloop.first %}<span class="text-muted" aria-hidden="true">→</span>{% endif %}
+                <a href="{{ step.get_absolute_url }}" class="flex items-center gap-2 rounded-full border py-1 pl-1 pr-3 text-sm transition hover:border-brand {% if step in result.common_ancestors %}border-accent/50 bg-accent-soft{% else %}border-line bg-surface{% endif %}">
+                  {% avatar step "sm" %}<span>{{ step.full_name }}</span>
+                </a>
+              </li>
+            {% endfor %}
+          </ol>
+          {% if result.common_ancestors %}
+            <p class="mt-5 text-sm text-muted">
+              Closest common ancestor{{ result.common_ancestors|length|pluralize }}:
+              {% for ancestor in result.common_ancestors %}<a href="{{ ancestor.get_absolute_url }}" class="font-medium text-ink hover:text-brand">{{ ancestor.full_name }}</a>{% if not forloop.last %} &amp; {% endif %}{% endfor %}
+            </p>
+          {% endif %}
+        </div>
+      {% endif %}
+
+      {% if not result.rel.found %}
+        <div class="border-t border-line p-6 text-sm text-muted">
+          The records may be missing a parent or marriage that links these two. You can
+          <a href="{% url 'genealogy:contact' %}" class="text-brand hover:underline">tell the administrators</a>{% if perms.genealogy.change_person %} or add the missing link from a profile page{% endif %}.
+        </div>
+      {% endif %}
+    </div>
+  {% elif request.GET.a or request.GET.b %}
+    <div class="card p-6 text-center text-muted">Please choose two people from the search suggestions.</div>
+  {% endif %}
+
+  <section class="mt-12 grid gap-4 sm:grid-cols-3">
+    <div class="card p-5">
+      <p class="font-semibold">First cousins</p>
+      <p class="mt-1 text-sm text-muted">Share grandparents. Their children are second cousins, who share great-grandparents.</p>
+    </div>
+    <div class="card p-5">
+      <p class="font-semibold">“Removed”</p>
+      <p class="mt-1 text-sm text-muted">Means the two cousins are from different generations. Your parent's first cousin is your first cousin once removed.</p>
+    </div>
+    <div class="card p-5">
+      <p class="font-semibold">Half &amp; step</p>
+      <p class="mt-1 text-sm text-muted">Half-siblings share one parent. Step-relatives are connected through marriage rather than blood.</p>
+    </div>
+  </section>
+</div>
+{% endblock %}
