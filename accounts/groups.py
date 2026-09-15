@@ -9,9 +9,15 @@ EDITOR_PERMISSIONS = {
         "union": ["add", "change", "delete", "view"],
         "parentchild": ["add", "change", "delete", "view"],
         "lifeevent": ["add", "change", "delete", "view"],
+        "residence": ["add", "change", "delete", "view"],
+        "education": ["add", "change", "delete", "view"],
+        "employment": ["add", "change", "delete", "view"],
+        "place": ["add", "change", "view"],
+        "tag": ["add", "change", "view"],
     },
     "gallery": {
         "photo": ["add", "change", "delete", "view"],
+        "recording": ["add", "change", "delete", "view"],
     },
 }
 

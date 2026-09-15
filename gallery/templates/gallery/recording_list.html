@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Recordings · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+<section class="paper border-b border-line">
+  <div class="mx-auto flex max-w-7xl flex-wrap items-end justify-between gap-6 px-4 py-12 sm:px-6 lg:px-8">
+    <div class="max-w-2xl">
+      <p class="eyebrow">Memories</p>
+      <h1 class="mt-3 font-display text-4xl sm:text-5xl">{% if selected_person %}Recordings with {{ selected_person.full_name }}{% else %}In their own words{% endif %}</h1>
+      <p class="mt-3 text-muted">Stories, songs and memories recorded with relatives, in the languages they were told in.</p>
+      {% include "gallery/_tabs.html" with active="recordings" %}
+    </div>
+    <div class="flex flex-wrap items-center gap-3">
+      {% if languages or speakers %}
+      <form method="get" class="flex flex-wrap gap-2">
+        {% if languages %}
+        <label for="language-filter" class="sr-only">Language</label>
+        <select id="language-filter" name="language" class="input" onchange="this.form.submit()">
+          <option value="">Any language</option>
+          {% for language in languages %}<option value="{{ language }}" {% if filters.language == language %}selected{% endif %}>{{ language }}</option>{% endfor %}
+        </select>
+        {% endif %}
+        {% if speakers %}
+        <label for="speaker-filter" class="sr-only">Person</label>
+        <select id="speaker-filter" name="person" class="input" onchange="this.form.submit()">
+          <option value="">Everyone</option>
+          {% for person in speakers %}<option value="{{ person.pk }}" {% if selected_person.pk == person.pk %}selected{% endif %}>{{ person.display_name }}</option>{% endfor %}
+        </select>
+        {% endif %}
+      </form>
+      {% endif %}
+      {% if perms.gallery.add_recording %}<a href="{% url 'gallery:recording_add' %}" class="btn btn-primary">Add recording</a>{% endif %}
+    </div>
+  </div>
+</section>
+
+<div class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+  {% if recordings %}
+  <div class="grid gap-5 md:grid-cols-2">
+    {% for recording in recordings %}
+    <article class="card flex flex-col gap-4 p-6">
+      <div class="flex items-start justify-between gap-4">
+        <div class="min-w-0">
+          <h2 class="font-display text-xl leading-snug"><a href="{{ recording.get_absolute_url }}" class="hover:text-brand">{{ recording.title }}</a></h2>
+          <p class="mt-1 text-sm text-muted">{{ recording.language|default:"Language not recorded" }}{% if recording.recorded_on %} · {{ recording.recorded_on|date:"M Y" }}{% endif %}{% if recording.place %} · {{ recording.place }}{% endif %}</p>
+        </div>
+        {% if recording.duration %}<span class="chip flex-none tabular-nums">{{ recording.duration }}</span>{% endif %}
+      </div>
+      {% if recording.description %}<p class="text-sm">{{ recording.description|truncatewords:40 }}</p>{% endif %}
+      <audio controls preload="none" class="w-full" src="{{ recording.audio.url }}"></audio>
+      {% if recording.speakers.all %}
+        <p class="text-sm text-muted">Told by {% for person in recording.speakers.all %}<a href="{{ person.get_absolute_url }}" class="font-medium text-ink hover:text-brand">{{ person.display_name }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+      {% endif %}
+    </article>
+    {% endfor %}
+  </div>
+  {% include "includes/pagination.html" %}
+  {% else %}
+  <div class="card mx-auto max-w-lg p-10 text-center">
+    <p class="font-display text-2xl">No recordings yet</p>
+    <p class="mt-2 text-sm text-muted">Record an elder telling a family story on your phone, then add it here so it's kept for the next generation.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

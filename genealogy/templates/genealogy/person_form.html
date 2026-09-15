@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load family %}
 
 {% block title %}{% if object %}Edit {{ object.full_name }}{% else %}Add a family member{% endif %} · {{ SITE_NAME }}{% endblock %}
 
@@ -12,6 +13,7 @@
         x-data="{ relation: '{{ form.relation.value|default:''|escapejs }}', living: {{ form.is_living.value|yesno:'true,false' }} }">
     {% csrf_token %}
     {% include "includes/form_errors.html" %}
+    {% form_datalists %}
 
     {% if relative %}
     <section class="card border-brand/30 p-6">
@@ -58,13 +60,24 @@
     </section>
 
     <section class="card p-6">
+      <h2 class="font-display text-xl">Family &amp; heritage</h2>
+      <div class="mt-5 grid gap-4 sm:grid-cols-2">
+        {% include "includes/field.html" with field=form.lineage %}
+        {% include "includes/field.html" with field=form.homeland %}
+        {% include "includes/field.html" with field=form.named_after %}
+        {% include "includes/field.html" with field=form.birth_order %}
+      </div>
+    </section>
+
+    <section class="card p-6">
       <h2 class="font-display text-xl">Story</h2>
       <div class="mt-5 grid gap-4">
-        {% include "includes/field.html" with field=form.lineage %}
         {% include "includes/field.html" with field=form.photo %}
         {% include "includes/field.html" with field=form.biography %}
+        {% include "includes/field.html" with field=form.tag_names %}
         {% include "includes/field.html" with field=form.needs_review %}
       </div>
+      {% if object %}<p class="mt-4 text-sm text-muted">Homes, schools and work are added on the profile page, under “Where life took them”.</p>{% endif %}
     </section>
 
     <div class="flex flex-wrap items-center gap-3">

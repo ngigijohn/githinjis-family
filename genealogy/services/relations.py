@@ -137,6 +137,57 @@ def generation_numbers(index=None):
     return {pid: placed(find(pid)) for pid in people}
 
 
+def _birth_label(position, same_gender, total, gender):
+    from genealogy.models import ordinal
+
+    if total == 1:
+        return "Only child"
+    parts = []
+    noun = {"M": "son", "F": "daughter"}.get(gender)
+    if noun and same_gender:
+        parts.append(f"{ordinal(same_gender)} {noun}")
+    parts.append("Firstborn" if position == 1 else "Lastborn" if position == total else f"{ordinal(position)} child")
+    return " · ".join(parts)
+
+
+def birth_order_labels(person_ids, index=None):
+    """``{person_id: label}`` such as ``"2nd son · 3rd child"``, among children of the same parents.
+
+    Siblings are ordered by recorded birth order when all of them have one,
+    otherwise by birth date. People whose place can't be told get no label.
+    """
+    from genealogy.models import Person
+
+    index = index or FamilyIndex.load()
+    wanted = set(person_ids)
+    families = {}
+    for pid in wanted:
+        parents = frozenset(index.parents.get(pid, ()))
+        if parents and parents not in families:
+            shared = set.intersection(*(set(index.children.get(parent, ())) for parent in parents))
+            families[parents] = {child for child in shared if frozenset(index.parents.get(child, ())) == parents}
+    ids = set().union(*families.values()) if families else set()
+    facts = {row["pk"]: row for row in Person.objects.filter(pk__in=ids).values("pk", "gender", "birth_date", "birth_order")}
+
+    labels = {}
+    for children in families.values():
+        kids = [facts[child] for child in children if child in facts]
+        if len(kids) == 1 or all(kid["birth_order"] for kid in kids):
+            order = sorted(kids, key=lambda kid: (kid["birth_order"] or 0, kid["pk"]))
+        elif all(kid["birth_date"] for kid in kids):
+            order = sorted(kids, key=lambda kid: (kid["birth_date"], kid["pk"]))
+        else:
+            for kid in kids:
+                if kid["pk"] in wanted and kid["birth_order"]:
+                    labels[kid["pk"]] = _birth_label(kid["birth_order"], None, len(kids), kid["gender"])
+            continue
+        for position, kid in enumerate(order, start=1):
+            if kid["pk"] in wanted:
+                same = sum(1 for other in order[:position] if other["gender"] == kid["gender"])
+                labels[kid["pk"]] = _birth_label(position, same, len(order), kid["gender"])
+    return labels
+
+
 def suggested_root(index=None):
     """The founding ancestor with the most descendants: a sensible starting point for the tree."""
     from genealogy.models import Person
@@ -345,7 +396,9 @@ def build_graph(root=None, up=3, down=3, hide_living_birth=False):
     partner → union → child, so a layered layout keeps each generation on its
     own row.
     """
-    from genealogy.models import ParentChild, Person, Union
+    from django.db.models import Q
+
+    from genealogy.models import ParentChild, Person, Union, marital_status_for
 
     index = FamilyIndex.load()
     root_id = _pk(root) if root is not None else None
@@ -361,9 +414,15 @@ def build_graph(root=None, up=3, down=3, hide_living_birth=False):
             ids |= index.partners.get(pid, set())
         people_qs = people_qs.filter(pk__in=ids)
 
-    people = list(people_qs)
+    people = list(people_qs.select_related("homeland", "named_after").prefetch_related("tags"))
     included = {p.pk for p in people}
     generations = generation_numbers(index)
+    birth_orders = birth_order_labels(included, index)
+    unions_by_person = defaultdict(list)
+    for union in Union.objects.filter(Q(partner_a_id__in=included) | Q(partner_b_id__in=included)):
+        for pid in (union.partner_a_id, union.partner_b_id):
+            if pid in included:
+                unions_by_person[pid].append(union)
     elements = []
     edge_ids = set()
 
@@ -381,6 +440,13 @@ def build_graph(root=None, up=3, down=3, hide_living_birth=False):
                 "kind": "person",
                 "root": person.pk == root_id,
                 "generation": generations.get(person.pk, 1),
+                "birthOrder": birth_orders.get(person.pk, ""),
+                "children": len(index.children.get(person.pk, ())),
+                "tags": [tag.name for tag in person.tags.all()],
+                "namedAfter": person.named_after.display_name if person.named_after else "",
+                "homeland": person.homeland.name if person.homeland else "",
+                "marital": marital_status_for(unions_by_person[person.pk], person),
+                "gaps": len(person.record_gaps()),
             }
         )
         elements.append({"group": "nodes", "data": data})

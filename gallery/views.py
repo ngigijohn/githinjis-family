@@ -1,12 +1,17 @@
 from django.contrib import messages
 from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.urls import reverse_lazy
-from django.views.generic import CreateView, DeleteView, ListView, UpdateView
+from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
 
 from genealogy.models import Person
 
-from .forms import PhotoForm
-from .models import Photo
+from .forms import PhotoForm, RecordingForm
+from .models import Photo, Recording
+
+
+def _person_from(request):
+    person_id = request.GET.get("person", "")
+    return Person.objects.filter(pk=person_id).first() if person_id.isdigit() else None
 
 
 class PhotoListView(ListView):
@@ -24,11 +29,8 @@ class PhotoListView(ListView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        person_id = self.request.GET.get("person")
         context["tagged_people"] = Person.objects.filter(photos__isnull=False).distinct()
-        context["selected_person"] = (
-            Person.objects.filter(pk=person_id).first() if person_id and person_id.isdigit() else None
-        )
+        context["selected_person"] = _person_from(self.request)
         context["lightbox"] = [
             {
                 "src": photo.image.url,
@@ -81,4 +83,87 @@ class PhotoDeleteView(PermissionRequiredMixin, DeleteView):
 
     def form_valid(self, form):
         messages.success(self.request, "Photo deleted.")
+        return super().form_valid(form)
+
+
+class RecordingListView(ListView):
+    model = Recording
+    paginate_by = 20
+    template_name = "gallery/recording_list.html"
+    context_object_name = "recordings"
+
+    def get_queryset(self):
+        qs = Recording.objects.select_related("place__parent").prefetch_related("speakers")
+        person = _person_from(self.request)
+        if person:
+            qs = qs.filter(speakers=person) | qs.filter(people=person)
+        if self.request.GET.get("language"):
+            qs = qs.filter(language__iexact=self.request.GET["language"])
+        return qs.distinct()
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context.update(
+            {
+                "selected_person": _person_from(self.request),
+                "languages": Recording.objects.exclude(language="").values_list("language", flat=True).distinct().order_by("language"),
+                "speakers": Person.objects.filter(recordings_given__isnull=False).distinct(),
+                "filters": self.request.GET,
+            }
+        )
+        return context
+
+
+class RecordingDetailView(DetailView):
+    model = Recording
+    template_name = "gallery/recording_detail.html"
+    context_object_name = "recording"
+
+    def get_queryset(self):
+        return Recording.objects.select_related("place__parent", "uploaded_by").prefetch_related("speakers", "people")
+
+
+class RecordingFormMixin:
+    model = Recording
+    form_class = RecordingForm
+    template_name = "gallery/recording_form.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["languages"] = sorted({"Gĩkũyũ", "English", "Kiswahili"} | set(Recording.objects.exclude(language="").values_list("language", flat=True)))
+        return context
+
+
+class RecordingCreateView(PermissionRequiredMixin, RecordingFormMixin, CreateView):
+    permission_required = "gallery.add_recording"
+
+    def get_initial(self):
+        initial = super().get_initial()
+        person = _person_from(self.request)
+        if person:
+            initial["speakers"] = [person.pk]
+        return initial
+
+    def form_valid(self, form):
+        form.instance.uploaded_by = self.request.user
+        messages.success(self.request, "Recording added.")
+        return super().form_valid(form)
+
+
+class RecordingUpdateView(PermissionRequiredMixin, RecordingFormMixin, UpdateView):
+    permission_required = "gallery.change_recording"
+
+    def form_valid(self, form):
+        messages.success(self.request, "Recording updated.")
+        return super().form_valid(form)
+
+
+class RecordingDeleteView(PermissionRequiredMixin, DeleteView):
+    permission_required = "gallery.delete_recording"
+    model = Recording
+    template_name = "gallery/recording_confirm_delete.html"
+    success_url = reverse_lazy("gallery:recording_list")
+
+    def form_valid(self, form):
+        messages.success(self.request, "Recording deleted.")
         return super().form_valid(form)

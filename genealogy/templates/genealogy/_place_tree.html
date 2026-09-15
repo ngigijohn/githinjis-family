@@ -1,0 +1,11 @@
+<ul class="{% if nested %}ml-3 border-l border-line pl-3{% endif %} space-y-0.5">
+  {% for node in nodes %}
+  <li>
+    <a href="{{ node.place.get_absolute_url }}" class="flex items-center justify-between gap-3 rounded-xl px-3 py-2 transition hover:bg-brand-soft/60">
+      <span class="min-w-0 truncate {% if not nested %}font-semibold{% else %}font-medium{% endif %}">{{ node.place.name }}</span>
+      <span class="flex-none text-xs text-muted">{{ node.place.get_kind_display }}{% if node.count %} · <span class="tabular-nums">{{ node.count }}</span> {{ node.count|pluralize:"person,people" }}{% endif %}</span>
+    </a>
+    {% if node.children %}{% include "genealogy/_place_tree.html" with nodes=node.children nested=True %}{% endif %}
+  </li>
+  {% endfor %}
+</ul>

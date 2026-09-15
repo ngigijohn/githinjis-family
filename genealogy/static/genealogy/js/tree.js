@@ -24,9 +24,9 @@
   // Mid-tone colours that stay readable on both light and dark grounds.
   const PALETTE = ["#2f8f83", "#c47f1a", "#8a63c9", "#c2566f", "#4f8a3a", "#3f7fbf", "#b5613a", "#5f7f8f"];
 
-  // The card is 220×72; the node is larger to leave room for the shadow and selection ring.
+  // The card is 220×82; the node is larger to leave room for the shadow and selection ring.
   const CARD_W = 236;
-  const CARD_H = 88;
+  const CARD_H = 98;
   const UNION_SIZE = 26;
   // SVG images can't use the page's web fonts, so cards use system fonts and are measured with them.
   const CARD_FONT = '"Segoe UI", system-ui, -apple-system, Helvetica, Arial, sans-serif';
@@ -107,11 +107,14 @@
 
   function cardImage(d, tone, selected, colors) {
     const dead = !d.living;
-    const key = [d.label, d.lifespan, dead, d.initials, d.photoData ? d.photo : "", tone.ring, tone.fill, tone.fillOpacity, selected, colors.surface, colors.shadow].join("|");
+    const badgeText = d.birthOrder || (d.tags && d.tags[0]) || "";
+    const key = [d.label, d.lifespan, dead, d.initials, d.photoData ? d.photo : "", badgeText, tone.ring, tone.fill, tone.fillOpacity, selected, colors.surface, colors.shadow].join("|");
     return cached(key, () => {
       const font = `font-family='${CARD_FONT.replace(/"/g, "")}'`;
       const name = xml(fitText(d.label, 13.5, 600, TEXT_MAX));
       const sub = xml(fitText(d.lifespan || (dead ? "Deceased" : "Dates not recorded"), 12, 400, TEXT_MAX));
+      const badge = badgeText ? xml(fitText(badgeText, 11, 600, TEXT_MAX)) : "";
+      const [nameY, subY] = badge ? [39, 56] : [46, 64];
       const parts = [];
       if (!dead) {
         parts.push(
@@ -119,24 +122,27 @@
         );
       }
       if (selected) {
-        parts.push(`<rect x="3" y="2" width="230" height="82" rx="19" fill="none" stroke="${colors.brand}" stroke-width="3" stroke-opacity="0.5"/>`);
+        parts.push(`<rect x="3" y="2" width="230" height="92" rx="19" fill="none" stroke="${colors.brand}" stroke-width="3" stroke-opacity="0.5"/>`);
       }
       parts.push(
         dead
-          ? `<rect x="8" y="7" width="220" height="72" rx="15" fill="${colors.bg}" stroke="${colors.mutedLine}" stroke-dasharray="5 4"/>`
-          : `<rect x="8" y="7" width="220" height="72" rx="15" fill="${colors.surface}" stroke="${colors.line}" filter="url(#s)"/>`
+          ? `<rect x="8" y="7" width="220" height="82" rx="15" fill="${colors.bg}" stroke="${colors.mutedLine}" stroke-dasharray="5 4"/>`
+          : `<rect x="8" y="7" width="220" height="82" rx="15" fill="${colors.surface}" stroke="${colors.line}" filter="url(#s)"/>`
       );
-      parts.push(`<circle cx="44" cy="43" r="22" fill="${tone.fill}" fill-opacity="${tone.fillOpacity}"/>`);
+      parts.push(`<circle cx="44" cy="48" r="22" fill="${tone.fill}" fill-opacity="${tone.fillOpacity}"/>`);
       if (d.photoData) {
         parts.push(
-          `<clipPath id="c"><circle cx="44" cy="43" r="21"/></clipPath><image x="22" y="21" width="44" height="44" preserveAspectRatio="xMidYMid slice" clip-path="url(#c)" href="${d.photoData}" xlink:href="${d.photoData}"/>`
+          `<clipPath id="c"><circle cx="44" cy="48" r="21"/></clipPath><image x="22" y="26" width="44" height="44" preserveAspectRatio="xMidYMid slice" clip-path="url(#c)" href="${d.photoData}" xlink:href="${d.photoData}"/>`
         );
       } else {
-        parts.push(`<text x="44" y="47.5" text-anchor="middle" ${font} font-size="13" font-weight="700" fill="${tone.ring}">${xml(d.initials || "?")}</text>`);
+        parts.push(`<text x="44" y="52.5" text-anchor="middle" ${font} font-size="13" font-weight="700" fill="${tone.ring}">${xml(d.initials || "?")}</text>`);
       }
-      parts.push(`<circle cx="44" cy="43" r="22" fill="none" stroke="${tone.ring}" stroke-width="2.5"${dead ? ' stroke-dasharray="3 3"' : ""}/>`);
-      parts.push(`<text x="78" y="39" ${font} font-size="13.5" font-weight="600" fill="${dead ? colors.muted : colors.ink}">${name}</text>`);
-      parts.push(`<text x="78" y="58" ${font} font-size="12" fill="${colors.muted}">${sub}</text>`);
+      parts.push(`<circle cx="44" cy="48" r="22" fill="none" stroke="${tone.ring}" stroke-width="2.5"${dead ? ' stroke-dasharray="3 3"' : ""}/>`);
+      parts.push(`<text x="78" y="${nameY}" ${font} font-size="13.5" font-weight="600" fill="${dead ? colors.muted : colors.ink}">${name}</text>`);
+      parts.push(`<text x="78" y="${subY}" ${font} font-size="12" fill="${colors.muted}">${sub}</text>`);
+      if (badge) {
+        parts.push(`<text x="78" y="74" ${font} font-size="11" font-weight="600" fill="${colors.accent}">${badge}</text>`);
+      }
       return svgUri(parts.join(""), CARD_W, CARD_H);
     });
   }
@@ -732,6 +738,10 @@
         if (person.gender === "M") return "bg-male-soft text-male";
         if (person.gender === "F") return "bg-rose-soft text-rose";
         return "bg-line/70 text-muted";
+      },
+
+      summaryLine(person) {
+        return person ? [person.birthOrder, person.marital].filter(Boolean).join(" · ") : "";
       },
 
       initials(person) {

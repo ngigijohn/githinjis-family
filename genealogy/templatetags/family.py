@@ -1,5 +1,7 @@
 from django import template
 
+from genealogy.models import Place, Tag
+
 register = template.Library()
 
 AVATAR_SIZES = {
@@ -21,12 +23,30 @@ def lifespan_for(person, user):
     return person.lifespan_text(hide_living_birth=not getattr(user, "is_authenticated", False))
 
 
+@register.filter
+def natural_join(items, conjunction="and"):
+    """``["a", "b", "c"]`` → ``"a, b and c"``."""
+    items = [str(item) for item in items]
+    if len(items) <= 1:
+        return "".join(items)
+    return f"{', '.join(items[:-1])} {conjunction} {items[-1]}"
+
+
 @register.inclusion_tag("includes/avatar.html")
 def avatar(person, size="md"):
     return {
         "person": person,
         "size_class": AVATAR_SIZES.get(size, AVATAR_SIZES["md"]),
         "tone": AVATAR_TONES.get(person.gender, AVATAR_NEUTRAL_TONE),
+    }
+
+
+@register.inclusion_tag("includes/datalists.html")
+def form_datalists():
+    """Suggestions for the place and tag text boxes in editing forms."""
+    return {
+        "places": Place.objects.select_related("parent__parent__parent"),
+        "tags": Tag.objects.all(),
     }
 
 

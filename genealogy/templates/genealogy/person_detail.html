@@ -17,7 +17,8 @@
         {% avatar person "xl" %}
         <div>
           <div class="flex flex-wrap gap-2">
-            {% if person.lineage %}<span class="chip">{{ person.lineage }}</span>{% endif %}
+            {% if person.lineage %}<a href="{% url 'genealogy:person_list' %}?lineage={{ person.lineage|urlencode }}" class="chip hover:opacity-80">{{ person.lineage }}</a>{% endif %}
+            {% for tag in tags %}<a href="{{ tag.get_absolute_url }}" class="chip bg-accent-soft text-accent hover:opacity-80">{{ tag.name }}</a>{% endfor %}
             {% if not person.is_living %}<span class="chip bg-line/70 text-muted">In loving memory</span>{% endif %}
             {% if person.needs_review %}<span class="chip bg-accent-soft text-accent">Details being verified</span>{% endif %}
           </div>
@@ -30,11 +31,20 @@
             <p class="mt-2 text-lg text-muted">{{ span }}{% if show_private and person.age is not None %}{% if span %} · {% endif %}{% if person.is_living %}{{ person.age }} years old{% else %}lived {{ person.age }} years{% endif %}{% endif %}</p>
             {% endif %}
           {% endwith %}
+          {% if summary or person.named_after %}
+            <p class="mt-1 text-sm text-muted">{{ summary|join:" · " }}{% if summary and person.named_after %} · {% endif %}{% if person.named_after %}Named after <a href="{{ person.named_after.get_absolute_url }}" class="font-medium text-brand hover:underline">{{ person.named_after.display_name }}</a>{% endif %}</p>
+          {% endif %}
         </div>
       </div>
 
       <div class="flex flex-wrap gap-2">
         <a href="{% url 'genealogy:tree' %}?root={{ person.pk }}" class="btn btn-primary">View in tree</a>
+        {% if user.is_authenticated %}
+          <form method="post" action="{% url 'genealogy:bookmark_toggle' person.pk %}">
+            {% csrf_token %}
+            <button class="btn btn-secondary" aria-pressed="{{ is_bookmarked|yesno:'true,false' }}">{% if is_bookmarked %}★ Bookmarked{% else %}☆ Bookmark{% endif %}</button>
+          </form>
+        {% endif %}
         {% if can_edit %}
           <div x-data="{ open: false }" class="relative" @click.outside="open = false">
             <button type="button" class="btn btn-secondary" @click="open = !open" :aria-expanded="open">Add relative ▾</button>
@@ -50,6 +60,17 @@
         {% if can_delete %}<a href="{% url 'genealogy:person_delete' person.pk %}" class="btn btn-ghost text-rose hover:bg-rose-soft hover:text-rose">Delete</a>{% endif %}
       </div>
     </div>
+
+    {% if gaps %}
+    <div class="mt-8 flex flex-col gap-3 rounded-2xl border border-accent/30 bg-accent-soft/60 p-4 sm:flex-row sm:items-center sm:justify-between">
+      <p class="text-sm"><span class="font-semibold">Awaiting records.</span> {{ person.first_name }}'s profile is still missing {{ gaps_text }}.</p>
+      {% if can_edit %}
+        <a href="{% url 'genealogy:person_edit' person.pk %}" class="btn btn-secondary btn-sm flex-none">Fill in details</a>
+      {% else %}
+        <a href="{% url 'genealogy:contact' %}" class="btn btn-secondary btn-sm flex-none">Share what you know</a>
+      {% endif %}
+    </div>
+    {% endif %}
   </div>
 </section>
 
@@ -64,7 +85,7 @@
           <dd class="mt-1">
             {% if show_private %}
               {% if person.birth_date %}{% if person.birth_date_approx %}around {{ person.birth_date|date:"Y" }}{% else %}{{ person.birth_date|date:"j F Y" }}{% endif %}{% else %}<span class="text-muted">Date not recorded</span>{% endif %}
-              {% if person.birth_place %}<span class="block text-sm text-muted">{{ person.birth_place }}</span>{% endif %}
+              {% if person.birth_place %}<a href="{{ person.birth_place.get_absolute_url }}" class="block text-sm text-muted hover:text-brand">{{ person.birth_place }}</a>{% endif %}
             {% else %}
               <span class="text-muted">Private for living relatives. <a class="text-brand hover:underline" href="{% url 'accounts:login' %}?next={{ request.path|urlencode }}">Sign in</a> to see.</span>
             {% endif %}
@@ -75,7 +96,7 @@
           <dt class="text-xs font-semibold uppercase tracking-wider text-muted">Died</dt>
           <dd class="mt-1">
             {% if person.death_date %}{{ person.death_date|date:"j F Y" }}{% else %}<span class="text-muted">Date not recorded</span>{% endif %}
-            {% if person.death_place %}<span class="block text-sm text-muted">{{ person.death_place }}</span>{% endif %}
+            {% if person.death_place %}<a href="{{ person.death_place.get_absolute_url }}" class="block text-sm text-muted hover:text-brand">{{ person.death_place }}</a>{% endif %}
           </dd>
         </div>
         {% endif %}
@@ -85,8 +106,28 @@
         </div>
         {% if person.lineage %}
         <div>
-          <dt class="text-xs font-semibold uppercase tracking-wider text-muted">Clan / lineage</dt>
+          <dt class="text-xs font-semibold uppercase tracking-wider text-muted">Clan</dt>
           <dd class="mt-1">{{ person.lineage }}</dd>
+        </div>
+        {% endif %}
+        {% if person.homeland %}
+        <div>
+          <dt class="text-xs font-semibold uppercase tracking-wider text-muted">Ancestral home</dt>
+          <dd class="mt-1"><a href="{{ person.homeland.get_absolute_url }}" class="hover:text-brand">{{ person.homeland }}</a></dd>
+        </div>
+        {% endif %}
+        {% if current_home %}
+        <div>
+          <dt class="text-xs font-semibold uppercase tracking-wider text-muted">Lives in</dt>
+          <dd class="mt-1">{% if show_private %}<a href="{{ current_home.place.get_absolute_url }}" class="hover:text-brand">{{ current_home.place }}</a>{% else %}<span class="text-muted">Private. Sign in to see.</span>{% endif %}</dd>
+        </div>
+        {% endif %}
+        {% if namesakes %}
+        <div class="sm:col-span-2">
+          <dt class="text-xs font-semibold uppercase tracking-wider text-muted">Named after {{ person.first_name }}</dt>
+          <dd class="mt-2 flex flex-wrap gap-2">
+            {% for namesake in namesakes %}<a href="{{ namesake.get_absolute_url }}" class="chip bg-surface text-ink ring-1 ring-line hover:text-brand">{{ namesake.display_name }}</a>{% endfor %}
+          </dd>
         </div>
         {% endif %}
       </dl>
@@ -99,6 +140,56 @@
         <div class="prose prose-stone mt-4 max-w-none dark:prose-invert">{{ person.biography|linebreaks }}</div>
       {% else %}
         <p class="mt-3 text-muted">No biography has been written yet.{% if can_edit %} <a href="{% url 'genealogy:person_edit' person.pk %}" class="text-brand hover:underline">Write one</a>.{% endif %}</p>
+      {% endif %}
+    </section>
+
+    <!-- Homes, education, work -->
+    <section id="life" class="card scroll-mt-24 p-6">
+      <h2 class="font-display text-2xl">Where life took them</h2>
+      <div class="mt-6 grid gap-8 md:grid-cols-3">
+        {% for column in history %}
+        <div>
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-muted">{{ column.title }}</h3>
+          {% if column.rows %}
+          <ol class="mt-4 space-y-4 border-l-2 border-line pl-4">
+            {% for row in column.rows %}
+            <li class="relative">
+              <span class="absolute -left-[1.35rem] top-1.5 h-2.5 w-2.5 rounded-full ring-4 ring-surface {% if row.current %}bg-brand{% else %}bg-line{% endif %}" aria-hidden="true"></span>
+              <p class="font-medium leading-snug">{{ row.primary }}</p>
+              {% if row.secondary %}<p class="text-sm text-muted">{{ row.secondary }}</p>{% endif %}
+              <p class="text-sm text-muted">{% if row.place %}<a href="{{ row.place.get_absolute_url }}" class="hover:text-brand">{{ row.place }}</a>{% endif %}{% if row.place and row.years %} · {% endif %}{{ row.years }}</p>
+              {% if row.current %}<span class="chip mt-1.5">{{ row.current }}</span>{% endif %}
+              {% if can_edit %}
+                <form method="post" action="{% url 'genealogy:history_delete' column.kind row.pk %}" x-data="{ confirming: false }" class="mt-1">
+                  {% csrf_token %}
+                  <button type="button" x-show="!confirming" @click="confirming = true" class="text-xs text-muted hover:text-rose">Remove</button>
+                  <span x-cloak x-show="confirming" class="text-xs"><button class="font-semibold text-rose">Confirm removal</button> · <button type="button" @click="confirming = false" class="text-muted">Cancel</button></span>
+                </form>
+              {% endif %}
+            </li>
+            {% endfor %}
+          </ol>
+          {% else %}
+            <p class="mt-3 text-sm text-muted">{{ column.empty }}</p>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+
+      {% if can_edit %}
+      {% form_datalists %}
+      <div class="mt-8 grid items-start gap-3 md:grid-cols-3">
+        {% for column in history %}
+        <details class="rounded-2xl border border-line p-4">
+          <summary class="cursor-pointer list-none text-sm font-semibold text-brand">+ {{ column.add_label }}</summary>
+          <form method="post" action="{% url 'genealogy:history_add' person.pk column.kind %}" class="mt-4 space-y-3">
+            {% csrf_token %}
+            {% for field in column.form %}{% include "includes/field.html" with field=field %}{% endfor %}
+            <button class="btn btn-primary btn-sm">Save</button>
+          </form>
+        </details>
+        {% endfor %}
+      </div>
       {% endif %}
     </section>
 
@@ -116,7 +207,7 @@
               <p class="font-semibold">{{ event.heading }}</p>
               <p class="text-sm text-muted">{% if event.date %}{{ event.date|date:"j M Y" }}{% else %}Date unknown{% endif %}</p>
             </div>
-            {% if event.place %}<p class="text-sm text-muted">{{ event.place }}</p>{% endif %}
+            {% if event.place %}<a href="{{ event.place.get_absolute_url }}" class="text-sm text-muted hover:text-brand">{{ event.place }}</a>{% endif %}
             {% if event.description %}<p class="mt-1 text-sm">{{ event.description|linebreaksbr }}</p>{% endif %}
             {% if perms.genealogy.delete_lifeevent %}
               <form method="post" action="{% url 'genealogy:event_delete' event.pk %}" x-data="{ confirming: false }" class="mt-1">
@@ -147,6 +238,31 @@
       </details>
       {% endif %}
     </section>
+
+    <!-- Recordings -->
+    {% if recordings or perms.gallery.add_recording %}
+    <section class="card p-6">
+      <div class="flex items-center justify-between gap-4">
+        <h2 class="font-display text-2xl">In their own words</h2>
+        {% if perms.gallery.add_recording %}<a href="{% url 'gallery:recording_add' %}?person={{ person.pk }}" class="btn btn-secondary btn-sm">Add recording</a>{% endif %}
+      </div>
+      {% if recordings %}
+        <div class="mt-5 space-y-4">
+          {% for recording in recordings %}
+          <div class="rounded-2xl border border-line p-4">
+            <div class="flex flex-wrap items-baseline justify-between gap-2">
+              <a href="{{ recording.get_absolute_url }}" class="font-semibold hover:text-brand">{{ recording.title }}</a>
+              <span class="text-xs text-muted">{{ recording.language|default:"Language not recorded" }}{% if recording.duration %} · {{ recording.duration }}{% endif %}</span>
+            </div>
+            <audio controls preload="none" class="mt-3 w-full" src="{{ recording.audio.url }}"></audio>
+          </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="mt-3 text-muted">No recordings with {{ person.first_name }} yet. Stories told in a relative's own voice are some of the most precious records a family can keep.</p>
+      {% endif %}
+    </section>
+    {% endif %}
 
     <!-- Photos -->
     <section class="card p-6">

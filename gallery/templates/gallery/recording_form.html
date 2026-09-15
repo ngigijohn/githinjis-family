@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% load family %}
+
+{% block title %}{% if object %}Edit recording{% else %}Add a recording{% endif %} · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-3xl px-4 py-10 sm:px-6">
+  <a href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'gallery:recording_list' %}{% endif %}" class="text-sm text-muted hover:text-brand">← Back</a>
+  <h1 class="mt-4 font-display text-4xl">{% if object %}Edit recording{% else %}Add a recording{% endif %}</h1>
+  <p class="mt-2 text-muted">A voice note from a phone is fine. MP3, M4A, WAV, OGG and similar audio files work.</p>
+
+  <form method="post" enctype="multipart/form-data" class="card mt-8 space-y-6 p-6 sm:p-8" x-data="{ q1: '', q2: '' }">
+    {% csrf_token %}
+    {% include "includes/form_errors.html" %}
+    {% form_datalists %}
+    <datalist id="language-options">{% for language in languages %}<option value="{{ language }}"></option>{% endfor %}</datalist>
+
+    {% include "includes/field.html" with field=form.title %}
+    {% if object.audio %}<audio controls preload="none" class="w-full" src="{{ object.audio.url }}"></audio>{% endif %}
+    {% include "includes/field.html" with field=form.audio %}
+    <div class="grid gap-4 sm:grid-cols-3">
+      {% include "includes/field.html" with field=form.language %}
+      {% include "includes/field.html" with field=form.recorded_on %}
+      {% include "includes/field.html" with field=form.place %}
+    </div>
+    {% include "includes/field.html" with field=form.description %}
+    {% include "includes/field.html" with field=form.transcript %}
+
+    <div class="grid gap-6 sm:grid-cols-2">
+      <div>
+        <p class="label">{{ form.speakers.label }}</p>
+        <input type="search" x-model="q1" class="input" placeholder="Filter names…" aria-label="Filter speakers">
+        <div class="mt-2 grid max-h-64 gap-1 overflow-auto rounded-xl border border-line p-2">
+          {% for choice in form.speakers %}
+            <label class="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-brand-soft" x-show="'{{ choice.choice_label|lower|escapejs }}'.includes(q1.toLowerCase())">{{ choice.tag }}<span class="text-sm">{{ choice.choice_label }}</span></label>
+          {% endfor %}
+        </div>
+      </div>
+      <div>
+        <p class="label">{{ form.people.label }}</p>
+        <input type="search" x-model="q2" class="input" placeholder="Filter names…" aria-label="Filter people talked about">
+        <div class="mt-2 grid max-h-64 gap-1 overflow-auto rounded-xl border border-line p-2">
+          {% for choice in form.people %}
+            <label class="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-brand-soft" x-show="'{{ choice.choice_label|lower|escapejs }}'.includes(q2.toLowerCase())">{{ choice.tag }}<span class="text-sm">{{ choice.choice_label }}</span></label>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-3">
+      <button class="btn btn-primary px-6">{% if object %}Save changes{% else %}Add recording{% endif %}</button>
+      <a href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'gallery:recording_list' %}{% endif %}" class="btn btn-ghost">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

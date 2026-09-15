@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}Delete recording · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-lg px-4 py-16 sm:px-6">
+  <div class="card p-8">
+    <h1 class="font-display text-3xl">Delete this recording?</h1>
+    <p class="mt-3 text-muted">“{{ object.title }}” and its audio file will be removed for everyone. This cannot be undone.</p>
+    <form method="post" class="mt-8 flex flex-wrap gap-3">
+      {% csrf_token %}
+      <button class="btn btn-danger">Delete recording</button>
+      <a href="{{ object.get_absolute_url }}" class="btn btn-ghost">Keep it</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

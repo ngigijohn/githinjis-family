@@ -1,9 +1,9 @@
 from django import forms
 
-from genealogy.forms import CHECKBOX_CLASS, DateInput, StyledFormMixin
+from genealogy.forms import CHECKBOX_CLASS, DateInput, PlaceFieldsMixin, StyledFormMixin, place_field
 from genealogy.models import Person
 
-from .models import Photo
+from .models import Photo, Recording
 
 
 class PhotoForm(StyledFormMixin, forms.ModelForm):
@@ -25,3 +25,35 @@ class PhotoForm(StyledFormMixin, forms.ModelForm):
             "date_taken": DateInput(),
             "description": forms.Textarea(attrs={"rows": 3}),
         }
+
+
+class RecordingForm(PlaceFieldsMixin, StyledFormMixin, forms.ModelForm):
+    place_fields = ("place",)
+    place = place_field("Where it was recorded")
+    speakers = forms.ModelMultipleChoiceField(
+        queryset=Person.objects.all(),
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={"class": CHECKBOX_CLASS}),
+        label="Who is speaking?",
+    )
+    people = forms.ModelMultipleChoiceField(
+        queryset=Person.objects.all(),
+        required=False,
+        widget=forms.CheckboxSelectMultiple(attrs={"class": CHECKBOX_CLASS}),
+        label="Who do they talk about?",
+    )
+    field_order = ["title", "audio", "language", "recorded_on", "place", "description", "transcript", "speakers", "people"]
+
+    class Meta:
+        model = Recording
+        fields = ["title", "audio", "language", "recorded_on", "description", "transcript", "speakers", "people"]
+        widgets = {
+            "recorded_on": DateInput(),
+            "description": forms.Textarea(attrs={"rows": 3, "placeholder": "What the recording is about, in a sentence or two."}),
+            "transcript": forms.Textarea(attrs={"rows": 8, "placeholder": "Optional. A written version, or a translation."}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["audio"].widget.attrs.update({"accept": "audio/*"})
+        self.fields["language"].widget.attrs.update({"list": "language-options", "autocomplete": "off"})

@@ -11,39 +11,55 @@
         <h1 class="mt-3 font-display text-4xl sm:text-5xl">The family</h1>
         <p class="mt-3 text-muted">{{ total_count }} {{ total_count|pluralize:"person,people" }} recorded so far.</p>
       </div>
-      {% if perms.genealogy.add_person %}
-        <a href="{% url 'genealogy:person_add' %}" class="btn btn-primary">+ Add a family member</a>
-      {% endif %}
+      <div class="flex flex-wrap gap-2">
+        <a href="{% url 'genealogy:tag_list' %}" class="btn btn-secondary">Browse tags</a>
+        {% if user.is_authenticated %}<a href="{% url 'genealogy:bookmarks' %}" class="btn btn-secondary">☆ Bookmarks</a>{% endif %}
+        {% if perms.genealogy.add_person %}<a href="{% url 'genealogy:person_add' %}" class="btn btn-primary">+ Add a family member</a>{% endif %}
+      </div>
     </div>
 
-    <form method="get" class="card mt-8 grid gap-3 p-3 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr_auto]">
-      <label class="sr-only" for="q">Search</label>
-      <input id="q" name="q" type="search" value="{{ filters.q|default:'' }}" class="input" placeholder="Search names, nicknames, maiden names…">
-      <label class="sr-only" for="surname">Surname</label>
-      <select id="surname" name="surname" class="input">
-        <option value="">All surnames</option>
-        {% for surname in surnames %}<option value="{{ surname }}" {% if filters.surname == surname %}selected{% endif %}>{{ surname }}</option>{% endfor %}
-      </select>
-      <label class="sr-only" for="status">Status</label>
-      <select id="status" name="status" class="input">
-        <option value="">Living &amp; deceased</option>
-        <option value="living" {% if filters.status == "living" %}selected{% endif %}>Living</option>
-        <option value="deceased" {% if filters.status == "deceased" %}selected{% endif %}>Deceased</option>
-      </select>
-      <label class="sr-only" for="sort">Sort</label>
-      <select id="sort" name="sort" class="input">
-        <option value="name">Sort by name</option>
-        <option value="oldest" {% if filters.sort == "oldest" %}selected{% endif %}>Oldest first</option>
-        <option value="youngest" {% if filters.sort == "youngest" %}selected{% endif %}>Youngest first</option>
-        <option value="recent" {% if filters.sort == "recent" %}selected{% endif %}>Recently added</option>
-      </select>
+    <form method="get" class="card mt-8 space-y-3 p-3">
+      <div class="flex gap-3">
+        <label class="sr-only" for="q">Search</label>
+        <input id="q" name="q" type="search" value="{{ filters.q|default:'' }}" class="input" placeholder="Search names, nicknames, maiden names…">
+        <button class="btn btn-primary flex-none">Search</button>
+      </div>
+      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <label class="sr-only" for="surname">Surname</label>
+        <select id="surname" name="surname" class="input">
+          <option value="">All surnames</option>
+          {% for surname in surnames %}<option value="{{ surname }}" {% if filters.surname == surname %}selected{% endif %}>{{ surname }}</option>{% endfor %}
+        </select>
+        <label class="sr-only" for="place">Place</label>
+        <select id="place" name="place" class="input">
+          <option value="">Anywhere</option>
+          {% for place in places %}<option value="{{ place.pk }}" {% if selected_place.pk == place.pk %}selected{% endif %}>{{ place }}</option>{% endfor %}
+        </select>
+        <label class="sr-only" for="tag">Tag</label>
+        <select id="tag" name="tag" class="input">
+          <option value="">Any tag</option>
+          {% for tag in tags %}<option value="{{ tag.slug }}" {% if filters.tag == tag.slug %}selected{% endif %}>{{ tag.name }}</option>{% endfor %}
+        </select>
+        <label class="sr-only" for="status">Status</label>
+        <select id="status" name="status" class="input">
+          <option value="">Living &amp; deceased</option>
+          <option value="living" {% if filters.status == "living" %}selected{% endif %}>Living</option>
+          <option value="deceased" {% if filters.status == "deceased" %}selected{% endif %}>Deceased</option>
+        </select>
+        <label class="sr-only" for="sort">Sort</label>
+        <select id="sort" name="sort" class="input">
+          <option value="name">Sort by name</option>
+          <option value="oldest" {% if filters.sort == "oldest" %}selected{% endif %}>Oldest first</option>
+          <option value="youngest" {% if filters.sort == "youngest" %}selected{% endif %}>Youngest first</option>
+          <option value="recent" {% if filters.sort == "recent" %}selected{% endif %}>Recently added</option>
+        </select>
+      </div>
       {% if lineages %}<input type="hidden" name="lineage" value="{{ filters.lineage|default:'' }}">{% endif %}
-      <button class="btn btn-primary">Search</button>
     </form>
 
     {% if lineages %}
     <div class="mt-4 flex flex-wrap items-center gap-2 text-sm">
-      <span class="text-muted">Lineage:</span>
+      <span class="text-muted">Clan:</span>
       <a href="?{% if filters.q %}q={{ filters.q|urlencode }}{% endif %}" class="chip {% if not filters.lineage %}bg-brand text-on-brand{% endif %}">All</a>
       {% for lineage in lineages %}
         <a href="?lineage={{ lineage|urlencode }}" class="chip {% if filters.lineage == lineage %}bg-brand text-on-brand{% endif %}">{{ lineage }}</a>
@@ -55,7 +71,7 @@
 
 <section class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
   {% if people %}
-    <p class="mb-5 text-sm text-muted">Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ page_obj.paginator.count }}</p>
+    <p class="mb-5 text-sm text-muted">Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ page_obj.paginator.count }}{% if selected_place %} connected to <a class="font-medium text-brand hover:underline" href="{{ selected_place.get_absolute_url }}">{{ selected_place }}</a>{% endif %}</p>
     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {% for person in people %}{% include "includes/person_card.html" %}{% endfor %}
     </div>

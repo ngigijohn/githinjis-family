@@ -1,19 +1,29 @@
 from collections import defaultdict
 
 from django.contrib import messages
-from django.contrib.auth.decorators import permission_required
+from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth.mixins import PermissionRequiredMixin
 from django.db import transaction
-from django.db.models import Count
+from django.db.models import Count, Q
+from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
 
-from gallery.models import Photo
+from gallery.models import Photo, Recording
 
-from .forms import ContactForm, LifeEventForm, LinkRelativeForm, PersonCreateForm, PersonForm
-from .models import LifeEvent, ParentChild, Person, Union
+from .forms import (
+    ContactForm,
+    EducationForm,
+    EmploymentForm,
+    LifeEventForm,
+    LinkRelativeForm,
+    PersonCreateForm,
+    PersonForm,
+    ResidenceForm,
+)
+from .models import Bookmark, Education, Employment, LifeEvent, ParentChild, Person, Place, Residence, Tag, Union
 from .services.relations import (
     FamilyIndex,
     build_graph,
@@ -22,8 +32,16 @@ from .services.relations import (
     relationship_between,
     suggested_root,
 )
+from .templatetags.family import natural_join
 
 TREE_SHOW_ALL_LIMIT = 150
+
+# kind in the URL -> (model, form, column title, add-button label, empty message)
+HISTORY = {
+    "home": (Residence, ResidenceForm, "Homes", "Add a home", "No homes recorded yet."),
+    "education": (Education, EducationForm, "Education", "Add a school", "No schools recorded yet."),
+    "work": (Employment, EmploymentForm, "Work", "Add work", "No work recorded yet."),
+}
 
 
 def _int_or_none(value):
@@ -68,6 +86,42 @@ def tree(request):
     return render(request, "genealogy/tree.html", {"config": config, "people_count": people_count})
 
 
+def place_connections():
+    """``{place_id: {person_id, ...}}``: everyone connected directly to each place."""
+    links = defaultdict(set)
+    for field in ("birth_place", "death_place", "homeland"):
+        for person_id, place_id in Person.objects.exclude(**{field: None}).values_list("pk", f"{field}_id"):
+            links[place_id].add(person_id)
+    for model in (Residence, Education, Employment):
+        for person_id, place_id in model.objects.exclude(place=None).values_list("person_id", "place_id"):
+            links[place_id].add(person_id)
+    return links
+
+
+def place_tree(links=None):
+    """Nested ``{"place", "children", "count"}`` nodes, counting people in a place or anywhere inside it."""
+    links = place_connections() if links is None else links
+    places = list(Place.objects.select_related("parent"))
+    children = defaultdict(list)
+    for place in places:
+        children[place.parent_id].append(place)
+    by_pk = {}
+
+    def build(place, seen):
+        seen = seen | {place.pk}
+        kids = [build(child, seen) for child in children[place.pk] if child.pk not in seen]
+        people = set(links.get(place.pk, ()))
+        for kid in kids:
+            people |= kid["people"]
+        kids.sort(key=lambda node: (-node["count"], node["place"].name))
+        node = {"place": place, "children": kids, "people": people, "count": len(people)}
+        by_pk[place.pk] = node
+        return node
+
+    roots = sorted((build(place, set()) for place in children[None]), key=lambda node: (-node["count"], node["place"].name))
+    return roots, by_pk
+
+
 class PersonListView(ListView):
     model = Person
     paginate_by = 24
@@ -81,18 +135,35 @@ class PersonListView(ListView):
         "recent": ["-created_at"],
     }
 
+    def selected_place(self):
+        pk = _int_or_none(self.request.GET.get("place"))
+        return Place.objects.select_related("parent").filter(pk=pk).first() if pk else None
+
     def get_queryset(self):
         params = self.request.GET
-        qs = Person.objects.search(params.get("q", ""))
+        qs = Person.objects.search(params.get("q", "")).prefetch_related("tags")
         if params.get("surname"):
             qs = qs.filter(last_name__iexact=params["surname"])
         if params.get("lineage"):
             qs = qs.filter(lineage__iexact=params["lineage"])
+        if params.get("tag"):
+            qs = qs.filter(tags__slug=params["tag"])
+        place = self.selected_place()
+        if place:
+            ids = place.descendant_ids()
+            qs = qs.filter(
+                Q(birth_place__in=ids)
+                | Q(death_place__in=ids)
+                | Q(homeland__in=ids)
+                | Q(residences__place__in=ids)
+                | Q(education__place__in=ids)
+                | Q(employment__place__in=ids)
+            )
         if params.get("status") == "living":
             qs = qs.filter(is_living=True)
         elif params.get("status") == "deceased":
             qs = qs.filter(is_living=False)
-        return qs.order_by(*self.SORTS.get(params.get("sort"), self.SORTS["name"]))
+        return qs.distinct().order_by(*self.SORTS.get(params.get("sort"), self.SORTS["name"]))
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -101,6 +172,9 @@ class PersonListView(ListView):
             {
                 "surnames": people.exclude(last_name="").values_list("last_name", flat=True).distinct().order_by("last_name"),
                 "lineages": people.exclude(lineage="").values_list("lineage", flat=True).distinct().order_by("lineage"),
+                "places": Place.objects.filter(pk__in=place_connections().keys()).select_related("parent").order_by("name"),
+                "tags": Tag.objects.filter(people__isnull=False).distinct().order_by("name"),
+                "selected_place": self.selected_place(),
                 "filters": self.request.GET,
                 "total_count": Person.objects.count(),
             }
@@ -112,6 +186,9 @@ class PersonDetailView(DetailView):
     model = Person
     template_name = "genealogy/person_detail.html"
     context_object_name = "person"
+
+    def get_queryset(self):
+        return Person.objects.select_related("birth_place__parent", "death_place__parent", "homeland__parent", "named_after")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -156,15 +233,26 @@ class PersonDetailView(DetailView):
             siblings.append({"person": sibling, "half": len(shared) == 1 and bool(my_parents - shared) and bool(theirs - shared)})
 
         can_edit = user.has_perm("genealogy.change_person")
+        show_private = user.is_authenticated or not person.is_living
+        gaps = person.record_gaps()
         context.update(
             {
                 "parent_links": parent_links,
                 "families": families,
                 "other_children": other_children,
                 "siblings": siblings,
-                "events": person.events.all(),
+                "events": person.events.select_related("place__parent"),
                 "photos": person.photos.all()[:12],
-                "show_private": user.is_authenticated or not person.is_living,
+                "recordings": Recording.objects.filter(Q(speakers=person) | Q(people=person)).distinct(),
+                "history": self.history(person, show_private, can_edit),
+                "current_home": person.residences.filter(is_current=True).select_related("place__parent").first(),
+                "namesakes": person.namesakes.all(),
+                "tags": person.tags.all(),
+                "summary": [part for part in (person.birth_order_label, person.marital_status) if part],
+                "gaps": gaps,
+                "gaps_text": natural_join(gaps),
+                "is_bookmarked": user.is_authenticated and Bookmark.objects.filter(user=user, person=person).exists(),
+                "show_private": show_private,
                 "can_edit": can_edit,
                 "can_delete": user.has_perm("genealogy.delete_person"),
                 "link_form": LinkRelativeForm(person=person) if can_edit else None,
@@ -172,6 +260,41 @@ class PersonDetailView(DetailView):
             }
         )
         return context
+
+    @staticmethod
+    def history(person, show_private, can_edit):
+        columns = []
+        for kind, (model, form_class, title, add_label, empty) in HISTORY.items():
+            rows = []
+            for item in model.objects.filter(person=person).select_related("place__parent"):
+                current = getattr(item, "is_current", False)
+                row = {"pk": item.pk, "place": item.place, "years": item.years, "secondary": "", "current": ""}
+                if kind == "home":
+                    if current and person.is_living and not show_private:
+                        row.update(primary="Current home", place=None, years="Private. Sign in to see.")
+                    else:
+                        row.update(primary=item.place.name, secondary=item.notes, current="Current home" if current else "")
+                elif kind == "education":
+                    detail = item.get_level_display() if item.level != Education.Level.OTHER else ""
+                    row.update(primary=item.institution, secondary=" · ".join(filter(None, [detail, item.field_of_study])))
+                else:
+                    row.update(
+                        primary=f"{item.role} at {item.employer}" if item.role else item.employer,
+                        secondary=item.notes,
+                        current="Works here now" if current else "",
+                    )
+                rows.append(row)
+            columns.append(
+                {
+                    "kind": kind,
+                    "title": title,
+                    "add_label": add_label,
+                    "empty": empty,
+                    "rows": rows,
+                    "form": form_class(prefix=kind) if can_edit else None,
+                }
+            )
+        return columns
 
 
 class PersonCreateView(PermissionRequiredMixin, CreateView):
@@ -290,6 +413,149 @@ def event_delete(request, pk):
     event.delete()
     messages.success(request, "Life event removed.")
     return redirect(f"{person.get_absolute_url()}#timeline")
+
+
+@require_POST
+@permission_required("genealogy.change_person", raise_exception=True)
+def history_add(request, pk, kind):
+    if kind not in HISTORY:
+        raise Http404("Unknown kind of life history.")
+    person = get_object_or_404(Person, pk=pk)
+    model, form_class, title, *_ = HISTORY[kind]
+    form = form_class(request.POST, prefix=kind)
+    if form.is_valid():
+        with transaction.atomic():
+            item = form.save(commit=False)
+            item.person = person
+            item.save()
+            if getattr(item, "is_current", False):
+                model.objects.filter(person=person, is_current=True).exclude(pk=item.pk).update(is_current=False)
+        messages.success(request, f"Added to {person.first_name}'s {title.lower()}.")
+    else:
+        errors = [error for field_errors in form.errors.values() for error in field_errors]
+        messages.error(request, " ".join(errors) or "Please check the details and try again.")
+    return redirect(f"{person.get_absolute_url()}#life")
+
+
+@require_POST
+@permission_required("genealogy.change_person", raise_exception=True)
+def history_delete(request, kind, pk):
+    if kind not in HISTORY:
+        raise Http404("Unknown kind of life history.")
+    item = get_object_or_404(HISTORY[kind][0], pk=pk)
+    person = item.person
+    item.delete()
+    messages.success(request, "Removed.")
+    return redirect(f"{person.get_absolute_url()}#life")
+
+
+@require_POST
+@login_required
+def bookmark_toggle(request, pk):
+    person = get_object_or_404(Person, pk=pk)
+    bookmark, created = Bookmark.objects.get_or_create(user=request.user, person=person)
+    if created:
+        messages.success(request, f"{person.first_name} was added to your bookmarks.")
+    else:
+        bookmark.delete()
+        messages.success(request, f"{person.first_name} was removed from your bookmarks.")
+    return redirect(person)
+
+
+@login_required
+def bookmarks(request):
+    people = Person.objects.filter(bookmarked_by__user=request.user).prefetch_related("tags").order_by("-bookmarked_by__created_at")
+    return render(request, "genealogy/bookmarks.html", {"people": people})
+
+
+def place_list(request):
+    nodes, by_pk = place_tree()
+    countries = [node for node in nodes if node["place"].kind == Place.Kind.COUNTRY and node["count"]]
+    home_country = countries[0] if countries else None
+    busiest = sorted(
+        (node for node in by_pk.values() if node["place"].kind != Place.Kind.COUNTRY and node["count"]),
+        key=lambda node: (-node["count"], node["place"].name),
+    )[:8]
+    context = {
+        "nodes": nodes,
+        "busiest": busiest,
+        "abroad": [node for node in countries if node is not home_country],
+        "place_count": len(by_pk),
+    }
+    return render(request, "genealogy/place_list.html", context)
+
+
+def place_detail(request, pk):
+    place = get_object_or_404(Place.objects.select_related("parent"), pk=pk)
+    ids = place.descendant_ids()
+    signed_in = request.user.is_authenticated
+
+    def where(item_place):
+        return "" if item_place is None or item_place.pk == place.pk else f"in {item_place.name}"
+
+    def details(*parts):
+        return " · ".join(part for part in parts if part)
+
+    people = Person.objects.select_related("birth_place", "death_place", "homeland")
+    groups = []
+
+    def add(title, rows):
+        if rows:
+            groups.append({"title": title, "rows": rows})
+
+    add("Born here", [
+        {"person": p, "detail": details(p.lifespan_text(hide_living_birth=not signed_in), where(p.birth_place))}
+        for p in people.filter(birth_place__in=ids).order_by("birth_date", "first_name")
+    ])
+    add("Lived here", [
+        {"person": r.person, "detail": details("Lives here now" if r.is_current else r.years, where(r.place))}
+        for r in Residence.objects.filter(place__in=ids).select_related("person", "place")
+        if signed_in or not (r.is_current and r.person.is_living)
+    ])
+    add("Studied here", [
+        {"person": e.person, "detail": details(e.institution, e.years, where(e.place))}
+        for e in Education.objects.filter(place__in=ids).select_related("person", "place")
+    ])
+    add("Worked here", [
+        {"person": e.person, "detail": details(f"{e.role} at {e.employer}" if e.role else e.employer, e.years, where(e.place))}
+        for e in Employment.objects.filter(place__in=ids).select_related("person", "place")
+    ])
+    add("Ancestral home of", [{"person": p, "detail": where(p.homeland)} for p in people.filter(homeland__in=ids)])
+    add("Died here", [
+        {"person": p, "detail": details(p.lifespan, where(p.death_place))} for p in people.filter(death_place__in=ids)
+    ])
+
+    _, by_pk = place_tree()
+    children = [by_pk[child.pk] for child in place.children.all() if child.pk in by_pk]
+    children.sort(key=lambda node: (-node["count"], node["place"].name))
+    map_url = ""
+    if place.latitude is not None and place.longitude is not None:
+        map_url = f"https://www.openstreetmap.org/?mlat={place.latitude}&mlon={place.longitude}#map=11/{place.latitude}/{place.longitude}"
+    context = {
+        "place": place,
+        "parents": list(reversed(place.hierarchy()[1:])),
+        "children": children,
+        "groups": groups,
+        "people_count": len({row["person"].pk for group in groups for row in group["rows"]}),
+        "recordings": Recording.objects.filter(place__in=ids),
+        "map_url": map_url,
+    }
+    return render(request, "genealogy/place_detail.html", context)
+
+
+def tag_list(request):
+    tags = Tag.objects.annotate(people_count=Count("people")).filter(people_count__gt=0).order_by("name")
+    by_category = defaultdict(list)
+    for tag in tags:
+        by_category[tag.category].append(tag)
+    categories = [{"label": label, "tags": by_category[value]} for value, label in Tag.Category.choices if by_category[value]]
+    return render(request, "genealogy/tag_list.html", {"categories": categories})
+
+
+def tag_detail(request, slug):
+    tag = get_object_or_404(Tag, slug=slug)
+    people = tag.people.prefetch_related("tags").order_by("last_name", "first_name")
+    return render(request, "genealogy/tag_detail.html", {"tag": tag, "people": people})
 
 
 def relationship(request):

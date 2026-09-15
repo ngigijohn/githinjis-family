@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}Bookmarks · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+<section class="paper border-b border-line">
+  <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+    <p class="eyebrow">Your bookmarks</p>
+    <h1 class="mt-3 font-display text-4xl sm:text-5xl">Relatives you're following</h1>
+    <p class="mt-3 text-muted">Bookmark a profile with ☆ to find it again quickly. Only you can see this list.</p>
+  </div>
+</section>
+
+<section class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+  {% if people %}
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      {% for person in people %}{% include "includes/person_card.html" %}{% endfor %}
+    </div>
+  {% else %}
+    <div class="card mx-auto max-w-lg p-10 text-center">
+      <p class="font-display text-2xl">No bookmarks yet</p>
+      <p class="mt-2 text-sm text-muted">Open any profile and choose “Bookmark”.</p>
+      <a href="{% url 'genealogy:person_list' %}" class="btn btn-secondary mt-6">Browse the family</a>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

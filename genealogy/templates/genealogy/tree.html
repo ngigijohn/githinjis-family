@@ -180,10 +180,34 @@
         </template>
         <h2 class="mt-5 font-display text-2xl" x-text="selected.label"></h2>
         <p class="mt-1 text-sm text-muted" x-text="selected.lifespan || (selected.living ? 'Living' : 'Deceased')"></p>
+        <p x-show="summaryLine(selected)" class="mt-1 text-sm font-medium text-ink" x-text="summaryLine(selected)"></p>
         <div class="mt-3 flex flex-wrap gap-2">
           <template x-if="selected.generation"><span class="chip" x-text="`Generation ${selected.generation}`"></span></template>
           <template x-if="selected.lineage"><span class="chip" x-text="selected.lineage"></span></template>
+          <template x-for="tag in (selected.tags || [])" :key="tag"><span class="chip bg-accent-soft text-accent" x-text="tag"></span></template>
         </div>
+        <dl class="mt-5 grid grid-cols-2 gap-3 text-sm">
+          <div class="rounded-xl bg-bg/70 p-3">
+            <dt class="text-xs text-muted">Children</dt>
+            <dd class="mt-0.5 font-semibold tabular-nums" x-text="selected.children || 'None recorded'"></dd>
+          </div>
+          <div class="rounded-xl bg-bg/70 p-3">
+            <dt class="text-xs text-muted">Record</dt>
+            <dd class="mt-0.5 font-semibold" :class="selected.gaps ? 'text-accent' : 'text-brand'" x-text="selected.gaps ? `${selected.gaps} detail${selected.gaps === 1 ? '' : 's'} missing` : 'Complete'"></dd>
+          </div>
+          <template x-if="selected.homeland">
+            <div class="col-span-2 rounded-xl bg-bg/70 p-3">
+              <dt class="text-xs text-muted">Ancestral home</dt>
+              <dd class="mt-0.5 font-semibold" x-text="selected.homeland"></dd>
+            </div>
+          </template>
+          <template x-if="selected.namedAfter">
+            <div class="col-span-2 rounded-xl bg-bg/70 p-3">
+              <dt class="text-xs text-muted">Named after</dt>
+              <dd class="mt-0.5 font-semibold" x-text="selected.namedAfter"></dd>
+            </div>
+          </template>
+        </dl>
         <div class="mt-6 flex flex-col gap-2">
           <a :href="selected.url" class="btn btn-primary">View profile</a>
           <button type="button" class="btn btn-secondary" @click="centerOn(selected)">Center the tree here</button>

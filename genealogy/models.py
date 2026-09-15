@@ -323,64 +323,16 @@ class Person(models.Model):
             Q(unions_as_a__partner_b=self) | Q(unions_as_b__partner_a=self)
         ).distinct()
 
-    def birth_position(self):
-        """``(child_number, number_among_same_gender, total)`` among children of the same parents.
-
-        Uses recorded birth order when every sibling has one, otherwise birth
-        dates. Returns ``None`` when the order can't be told.
-        """
-        parent_ids = set(self.parent_links.values_list("parent_id", flat=True))
-        if not parent_ids:
-            return None
-        sibling_ids = ParentChild.objects.filter(parent_id__in=parent_ids).values_list("child_id", flat=True)
-        parents_of = defaultdict(set)
-        for child_id, parent_id in ParentChild.objects.filter(child_id__in=sibling_ids).values_list("child_id", "parent_id"):
-            parents_of[child_id].add(parent_id)
-        people = list(Person.objects.filter(pk__in=[cid for cid, ps in parents_of.items() if ps == parent_ids]))
-        if len(people) <= 1:
-            return (1, 1, 1)
-        if all(p.birth_order for p in people):
-            people.sort(key=lambda p: (p.birth_order, p.pk))
-        elif all(p.birth_date for p in people):
-            people.sort(key=lambda p: (p.birth_date, p.pk))
-        elif self.birth_order:
-            return (self.birth_order, None, len(people))
-        else:
-            return None
-        index = next(i for i, p in enumerate(people) if p.pk == self.pk)
-        same = sum(1 for p in people[: index + 1] if p.gender == self.gender)
-        return (index + 1, same if self.gender in (self.Gender.MALE, self.Gender.FEMALE) else None, len(people))
-
     @property
     def birth_order_label(self):
         """Such as ``"2nd son · 3rd child"``, ``"1st daughter · Firstborn"`` or ``"Only child"``."""
-        position = self.birth_position()
-        if not position:
-            return ""
-        child, gendered, total = position
-        if total == 1:
-            return "Only child"
-        parts = []
-        noun = {self.Gender.MALE: "son", self.Gender.FEMALE: "daughter"}.get(self.gender)
-        if gendered and noun:
-            parts.append(f"{ordinal(gendered)} {noun}")
-        parts.append("Firstborn" if child == 1 else "Lastborn" if child == total else f"{ordinal(child)} child")
-        return " · ".join(parts)
+        from .services.relations import birth_order_labels
+
+        return birth_order_labels([self.pk]).get(self.pk, "")
 
     @property
     def marital_status(self):
-        unions = list(self.unions())
-        if not unions:
-            return ""
-        current = next((union for union in unions if union.is_current), None)
-        if current:
-            return "Partnered" if current.union_type == Union.Type.PARTNERSHIP else "Married"
-        reasons = {union.end_reason for union in unions}
-        if Union.EndReason.DEATH in reasons:
-            return "Widowed"
-        if Union.EndReason.DIVORCE in reasons:
-            return "Divorced"
-        return "Separated"
+        return marital_status_for(self.unions())
 
     @property
     def current_residence(self):
@@ -527,6 +479,33 @@ class ParentChild(models.Model):
         ).first()
         if union:
             cls.objects.filter(child=child, union__isnull=True).update(union=union)
+
+
+def marital_status_for(unions, person=None):
+    """"Married", "Widowed", "Divorced" and so on, from someone's unions.
+
+    Pass ``person`` so that a marriage which ended with that person's own death
+    still reads as "Married" rather than "Widowed".
+    """
+    unions = list(unions)
+    if not unions:
+        return ""
+
+    def still_married(union):
+        if union.is_current:
+            return True
+        died = person is not None and person.death_date and union.end_date
+        return bool(died and union.end_reason == Union.EndReason.DEATH and union.end_date >= person.death_date)
+
+    current = next((union for union in unions if still_married(union)), None)
+    if current:
+        return "Partnered" if current.union_type == Union.Type.PARTNERSHIP else "Married"
+    reasons = {union.end_reason for union in unions}
+    if Union.EndReason.DEATH in reasons:
+        return "Widowed"
+    if Union.EndReason.DIVORCE in reasons:
+        return "Divorced"
+    return "Separated"
 
 
 class YearRange(models.Model):
