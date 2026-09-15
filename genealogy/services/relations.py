@@ -86,34 +86,55 @@ def generation_count(index=None):
 def generation_numbers(index=None):
     """``{person_id: generation}``, counting 1 at the eldest recorded ancestors.
 
-    Someone with no recorded parents who married into the family takes their
-    partner's generation, so in-laws sit on the same row as their partner.
+    Partners share a generation and children sit one below their parents. So
+    someone who married into the family lines up with their partner, and an
+    in-law's own parents and grandparents sit above them rather than at the top.
     """
     index = index or FamilyIndex.load()
     people = set(index.parents) | set(index.children) | set(index.partners)
 
-    def resolve(start):
+    # Partners share a generation, so work with groups of partners.
+    leader = {pid: pid for pid in people}
+
+    def find(pid):
+        while leader[pid] != pid:
+            leader[pid] = leader[leader[pid]]
+            pid = leader[pid]
+        return pid
+
+    for pid in people:
+        for partner in index.partners.get(pid, ()):
+            leader[find(pid)] = find(partner)
+    groups = {find(pid) for pid in people}
+    parent_groups, child_groups = defaultdict(set), defaultdict(set)
+    for child, parents in index.parents.items():
+        for parent in parents:
+            upper, lower = find(parent), find(child)
+            if upper != lower:
+                parent_groups[lower].add(upper)
+                child_groups[upper].add(lower)
+
+    def memoized(step):
         memo, visiting = {}, set()
 
-        def gen(pid):
-            if pid in memo:
-                return memo[pid]
-            parents = index.parents.get(pid)
-            if not parents or pid in visiting:  # defensive: validation prevents cycles
-                return start(pid)
-            visiting.add(pid)
-            memo[pid] = 1 + max(gen(parent) for parent in parents)
-            visiting.discard(pid)
-            return memo[pid]
+        def solve(group):
+            if group not in memo:
+                if group in visiting:  # defensive: validation prevents loops
+                    return 1
+                visiting.add(group)
+                memo[group] = step(group, solve)
+                visiting.discard(group)
+            return memo[group]
 
-        return {pid: gen(pid) for pid in people}
+        return solve
 
-    by_ancestry = resolve(lambda pid: 1)
-
-    def start(pid):
-        return max((by_ancestry[q] for q in index.partners.get(pid, ()) if index.parents.get(q)), default=1)
-
-    return resolve(start)
+    # One below the lowest recorded parents...
+    depth = memoized(lambda group, solve: 1 + max((solve(p) for p in parent_groups[group]), default=0))
+    # ...then lift ancestors who sit higher than needed to just above their children.
+    placed = memoized(
+        lambda group, solve: max(depth(group), min((solve(c) for c in child_groups[group]), default=depth(group) + 1) - 1)
+    )
+    return {pid: placed(find(pid)) for pid in people}
 
 
 def suggested_root(index=None):

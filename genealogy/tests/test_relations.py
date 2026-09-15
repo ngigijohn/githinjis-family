@@ -1,6 +1,6 @@
 from django.test import TestCase
 
-from genealogy.models import Person
+from genealogy.models import ParentChild, Person
 from genealogy.services.relations import (
     ancestors,
     build_graph,
@@ -12,7 +12,7 @@ from genealogy.services.relations import (
     suggested_root,
 )
 
-from .family import build_family
+from .family import build_family, couple
 
 
 class GenerationNumberTests(TestCase):
@@ -34,6 +34,20 @@ class GenerationNumberTests(TestCase):
             with self.subTest(person=person.first_name):
                 self.assertEqual(generations[person.pk], generation)
         self.assertNotIn(f.stranger.pk, generations)
+
+    def test_in_laws_recorded_parents_sit_above_them(self):
+        f = self.f
+        husband_father = Person.objects.create(first_name="HusbandFather", gender="M")
+        husband_mother = Person.objects.create(first_name="HusbandMother", gender="F")
+        husband_grandpa = Person.objects.create(first_name="HusbandGrandpa", gender="M")
+        couple(husband_father, husband_mother, f.cousin_husband)
+        ParentChild.objects.create(parent=husband_grandpa, child=husband_father)
+        generations = generation_numbers()
+        self.assertEqual(generations[f.cousin_husband.pk], 4)
+        self.assertEqual(generations[husband_father.pk], 3)
+        self.assertEqual(generations[husband_mother.pk], 3)
+        self.assertEqual(generations[husband_grandpa.pk], 2)
+        self.assertEqual(generations[f.gg.pk], 1)
 
     def test_tree_nodes_carry_their_generation(self):
         people = {e["data"]["pk"]: e["data"] for e in build_graph()["elements"] if e["data"].get("kind") == "person"}

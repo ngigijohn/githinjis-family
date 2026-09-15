@@ -1,7 +1,18 @@
 from django import forms
 from django.core.exceptions import ValidationError
 
-from .models import ContactMessage, LifeEvent, ParentChild, Person, Union
+from .models import (
+    ContactMessage,
+    Education,
+    Employment,
+    LifeEvent,
+    ParentChild,
+    Person,
+    Place,
+    Residence,
+    Tag,
+    Union,
+)
 
 CHECKBOX_CLASS = "mt-0.5 h-4 w-4 rounded border-line text-brand focus:ring-brand/30"
 FILE_CLASS = (
@@ -36,7 +47,49 @@ class DateInput(forms.DateInput):
         super().__init__(**kwargs)
 
 
-class PersonForm(StyledFormMixin, forms.ModelForm):
+def place_field(label, **kwargs):
+    """A text box for a place, suggesting known places (see the ``place_datalist`` tag)."""
+    return forms.CharField(
+        label=label,
+        required=False,
+        max_length=250,
+        widget=forms.TextInput(attrs={"list": "place-options", "placeholder": "e.g. Othaya, Nyeri, Kenya", "autocomplete": "off"}),
+        **kwargs,
+    )
+
+
+class PlaceFieldsMixin:
+    """Take places as text ("Othaya, Nyeri") and store them as ``Place`` records on save."""
+
+    place_fields = ()
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for name in self.place_fields:
+            place = getattr(self.instance, name, None)
+            if place is not None and name not in self.initial:
+                self.initial[name] = place.full_name
+
+    def save(self, commit=True):
+        for name in self.place_fields:
+            setattr(self.instance, name, Place.from_text(self.cleaned_data.get(name)))
+        return super().save(commit)
+
+
+class PersonForm(PlaceFieldsMixin, StyledFormMixin, forms.ModelForm):
+    place_fields = ("birth_place", "death_place", "homeland")
+
+    birth_place = place_field("Place of birth")
+    death_place = place_field("Place of death")
+    homeland = place_field("Ancestral home", help_text="Where their family's roots or land are (mũciĩ).")
+    tag_names = forms.CharField(
+        label="Tags",
+        required=False,
+        max_length=500,
+        help_text="Separate with commas, e.g. Teacher, Church elder, Farmer.",
+        widget=forms.TextInput(attrs={"list": "tag-options", "autocomplete": "off"}),
+    )
+
     class Meta:
         model = Person
         fields = [
@@ -48,10 +101,10 @@ class PersonForm(StyledFormMixin, forms.ModelForm):
             "gender",
             "birth_date",
             "birth_date_approx",
-            "birth_place",
             "is_living",
             "death_date",
-            "death_place",
+            "birth_order",
+            "named_after",
             "lineage",
             "photo",
             "biography",
@@ -67,6 +120,27 @@ class PersonForm(StyledFormMixin, forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["is_living"].widget.attrs["x-model"] = "living"
+        named_after = self.fields["named_after"]
+        named_after.queryset = Person.objects.order_by("first_name", "last_name")
+        if self.instance.pk:
+            named_after.queryset = named_after.queryset.exclude(pk=self.instance.pk)
+            self.initial.setdefault("tag_names", ", ".join(tag.name for tag in self.instance.tags.all()))
+        named_after.empty_label = "Not recorded"
+
+    def save(self, commit=True):
+        person = super().save(commit)
+        tags = Tag.from_names(self.cleaned_data.get("tag_names"))
+        if commit:
+            person.tags.set(tags)
+        else:
+            save_m2m = self.save_m2m
+
+            def save_m2m_with_tags():
+                save_m2m()
+                person.tags.set(tags)
+
+            self.save_m2m = save_m2m_with_tags
+        return person
 
 
 class PersonCreateForm(PersonForm):
@@ -191,14 +265,53 @@ class LinkRelativeForm(StyledFormMixin, forms.Form):
         return self.link
 
 
-class LifeEventForm(StyledFormMixin, forms.ModelForm):
+class LifeEventForm(PlaceFieldsMixin, StyledFormMixin, forms.ModelForm):
+    place_fields = ("place",)
+    place = place_field("Place")
+    field_order = ["event_type", "title", "date", "place", "description"]
+
     class Meta:
         model = LifeEvent
-        fields = ["event_type", "title", "date", "place", "description"]
+        fields = ["event_type", "title", "date", "description"]
         widgets = {
             "date": DateInput(),
             "description": forms.Textarea(attrs={"rows": 3}),
         }
+
+
+class ResidenceForm(PlaceFieldsMixin, StyledFormMixin, forms.ModelForm):
+    place_fields = ("place",)
+    place = place_field("Place", )
+    field_order = ["place", "start_year", "end_year", "is_current", "notes"]
+
+    class Meta:
+        model = Residence
+        fields = ["start_year", "end_year", "is_current", "notes"]
+
+    def clean_place(self):
+        if not self.cleaned_data.get("place", "").strip():
+            raise ValidationError("Say where they lived.")
+        return self.cleaned_data["place"]
+
+
+class EducationForm(PlaceFieldsMixin, StyledFormMixin, forms.ModelForm):
+    place_fields = ("place",)
+    place = place_field("Place")
+    field_order = ["institution", "level", "field_of_study", "place", "start_year", "end_year", "notes"]
+
+    class Meta:
+        model = Education
+        fields = ["institution", "level", "field_of_study", "start_year", "end_year", "notes"]
+
+
+class EmploymentForm(PlaceFieldsMixin, StyledFormMixin, forms.ModelForm):
+    place_fields = ("place",)
+    place = place_field("Place")
+    field_order = ["employer", "role", "place", "start_year", "end_year", "is_current", "notes"]
+
+    class Meta:
+        model = Employment
+        fields = ["employer", "role", "start_year", "end_year", "is_current", "notes"]
 
 
 class ContactForm(StyledFormMixin, forms.ModelForm):

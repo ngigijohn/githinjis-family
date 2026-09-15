@@ -7,7 +7,12 @@ People are connected in two ways:
 * ``ParentChild`` - a parent/child link, optionally tied to the union the child
   was born into. Linking children to unions lets us tell full siblings from
   half-siblings and draw the tree with couples above their children.
+
+Around each person sit the details of a life: places (``Place``, nested from
+village up to country), where they lived, studied and worked (``Residence``,
+``Education``, ``Employment``), free-form ``Tag``s and ``LifeEvent``s.
 """
+from collections import defaultdict
 from datetime import date
 
 from django.conf import settings
@@ -15,6 +20,126 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import F, Q
 from django.urls import reverse
+from django.utils.text import slugify
+
+
+def ordinal(number):
+    suffix = "th" if 10 <= number % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(number % 10, "th")
+    return f"{number}{suffix}"
+
+
+class Place(models.Model):
+    class Kind(models.TextChoices):
+        COUNTRY = "country", "Country"
+        REGION = "region", "Region / province"
+        COUNTY = "county", "County"
+        SUBCOUNTY = "subcounty", "Sub-county / district"
+        LOCATION = "location", "Location / ward"
+        TOWN = "town", "Town / city"
+        VILLAGE = "village", "Village"
+        OTHER = "other", "Other"
+
+    name = models.CharField(max_length=120)
+    kind = models.CharField(max_length=20, choices=Kind.choices, default=Kind.OTHER)
+    parent = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="children",
+        help_text="The larger place this one is part of, e.g. the county a village is in.",
+    )
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    description = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["name", "pk"]
+        constraints = [models.UniqueConstraint(fields=["name", "parent"], name="unique_place_name_in_parent")]
+
+    def __str__(self):
+        return ", ".join(place.name for place in self.hierarchy()[:2])
+
+    def get_absolute_url(self):
+        return reverse("genealogy:place_detail", args=[self.pk])
+
+    def clean(self):
+        if self.pk and self.parent_id and self.pk in {place.pk for place in self.parent.hierarchy()}:
+            raise ValidationError({"parent": "A place cannot be inside itself."})
+
+    def hierarchy(self):
+        """This place followed by each larger place containing it."""
+        chain, seen, place = [], set(), self
+        while place is not None and place.pk not in seen:
+            chain.append(place)
+            seen.add(place.pk)
+            place = place.parent
+        return chain
+
+    @property
+    def full_name(self):
+        return ", ".join(place.name for place in self.hierarchy())
+
+    def descendant_ids(self):
+        """Primary keys of this place and every place inside it."""
+        ids, frontier = {self.pk}, [self.pk]
+        while frontier:
+            frontier = list(Place.objects.filter(parent_id__in=frontier).exclude(pk__in=ids).values_list("pk", flat=True))
+            ids.update(frontier)
+        return ids
+
+    @classmethod
+    def from_text(cls, text):
+        """Find or create a place from text such as ``"Othaya, Nyeri, Kenya"``, smallest place first."""
+        parts = [part.strip() for part in (text or "").split(",") if part.strip()]
+        parent = None
+        for name in reversed(parts):
+            matches = cls.objects.filter(name__iexact=name)
+            if parent is not None:
+                matches = matches.filter(parent=parent)
+            parent = matches.first() or cls.objects.create(name=name, parent=parent)
+        return parent
+
+
+class Tag(models.Model):
+    class Category(models.TextChoices):
+        ROLE = "role", "Role or title"
+        OCCUPATION = "occupation", "Occupation"
+        FAITH = "faith", "Faith & church"
+        COMMUNITY = "community", "Community & groups"
+        HERITAGE = "heritage", "Heritage & tradition"
+        OTHER = "other", "Other"
+
+    name = models.CharField(max_length=60, unique=True)
+    slug = models.SlugField(max_length=70, unique=True, blank=True)
+    category = models.CharField(max_length=20, choices=Category.choices, default=Category.OTHER)
+    description = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+    def get_absolute_url(self):
+        return reverse("genealogy:tag_detail", args=[self.slug])
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            base = slugify(self.name) or "tag"
+            slug, number = base, 2
+            while Tag.objects.filter(slug=slug).exclude(pk=self.pk).exists():
+                slug, number = f"{base}-{number}", number + 1
+            self.slug = slug
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def from_names(cls, text):
+        """Tags for comma-separated names, creating any that don't exist yet."""
+        tags = []
+        for name in dict.fromkeys(part.strip() for part in (text or "").split(",") if part.strip()):
+            tags.append(cls.objects.filter(name__iexact=name).first() or cls.objects.create(name=name))
+        return tags
 
 
 class PersonQuerySet(models.QuerySet):
@@ -54,16 +179,43 @@ class Person(models.Model):
 
     birth_date = models.DateField(null=True, blank=True)
     birth_date_approx = models.BooleanField("birth date is approximate", default=False)
-    birth_place = models.CharField(max_length=120, blank=True)
+    birth_place = models.ForeignKey(
+        Place, null=True, blank=True, on_delete=models.SET_NULL, related_name="births", verbose_name="place of birth"
+    )
     is_living = models.BooleanField(default=True)
     death_date = models.DateField(null=True, blank=True)
-    death_place = models.CharField(max_length=120, blank=True)
+    death_place = models.ForeignKey(
+        Place, null=True, blank=True, on_delete=models.SET_NULL, related_name="deaths", verbose_name="place of death"
+    )
+    birth_order = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text="Position among their parents' children (1 = firstborn). Leave empty to use birth dates.",
+    )
+    named_after = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="namesakes",
+        help_text="The relative this person was named after.",
+    )
+    homeland = models.ForeignKey(
+        Place,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="homeland_of",
+        verbose_name="ancestral home",
+        help_text="Where their family's roots or land are (mũciĩ).",
+    )
 
     lineage = models.CharField(
         "clan / lineage", max_length=80, blank=True, help_text="Clan or lineage (mbarĩ / mũhĩrĩga)."
     )
     biography = models.TextField(blank=True)
     photo = models.ImageField(upload_to="people/%Y/", blank=True)
+    tags = models.ManyToManyField(Tag, blank=True, related_name="people")
     needs_review = models.BooleanField(
         default=False, help_text="Flag records whose details still need to be confirmed."
     )
@@ -92,6 +244,8 @@ class Person(models.Model):
             raise ValidationError({"birth_date": "Date of birth cannot be in the future."})
         if self.birth_date and self.death_date and self.death_date < self.birth_date:
             raise ValidationError({"death_date": "Date of death cannot be before date of birth."})
+        if self.pk and self.named_after_id == self.pk:
+            raise ValidationError({"named_after": "A person cannot be named after themselves."})
         if self.death_date:
             self.is_living = False
 
@@ -168,6 +322,84 @@ class Person(models.Model):
         return Person.objects.filter(
             Q(unions_as_a__partner_b=self) | Q(unions_as_b__partner_a=self)
         ).distinct()
+
+    def birth_position(self):
+        """``(child_number, number_among_same_gender, total)`` among children of the same parents.
+
+        Uses recorded birth order when every sibling has one, otherwise birth
+        dates. Returns ``None`` when the order can't be told.
+        """
+        parent_ids = set(self.parent_links.values_list("parent_id", flat=True))
+        if not parent_ids:
+            return None
+        sibling_ids = ParentChild.objects.filter(parent_id__in=parent_ids).values_list("child_id", flat=True)
+        parents_of = defaultdict(set)
+        for child_id, parent_id in ParentChild.objects.filter(child_id__in=sibling_ids).values_list("child_id", "parent_id"):
+            parents_of[child_id].add(parent_id)
+        people = list(Person.objects.filter(pk__in=[cid for cid, ps in parents_of.items() if ps == parent_ids]))
+        if len(people) <= 1:
+            return (1, 1, 1)
+        if all(p.birth_order for p in people):
+            people.sort(key=lambda p: (p.birth_order, p.pk))
+        elif all(p.birth_date for p in people):
+            people.sort(key=lambda p: (p.birth_date, p.pk))
+        elif self.birth_order:
+            return (self.birth_order, None, len(people))
+        else:
+            return None
+        index = next(i for i, p in enumerate(people) if p.pk == self.pk)
+        same = sum(1 for p in people[: index + 1] if p.gender == self.gender)
+        return (index + 1, same if self.gender in (self.Gender.MALE, self.Gender.FEMALE) else None, len(people))
+
+    @property
+    def birth_order_label(self):
+        """Such as ``"2nd son · 3rd child"``, ``"1st daughter · Firstborn"`` or ``"Only child"``."""
+        position = self.birth_position()
+        if not position:
+            return ""
+        child, gendered, total = position
+        if total == 1:
+            return "Only child"
+        parts = []
+        noun = {self.Gender.MALE: "son", self.Gender.FEMALE: "daughter"}.get(self.gender)
+        if gendered and noun:
+            parts.append(f"{ordinal(gendered)} {noun}")
+        parts.append("Firstborn" if child == 1 else "Lastborn" if child == total else f"{ordinal(child)} child")
+        return " · ".join(parts)
+
+    @property
+    def marital_status(self):
+        unions = list(self.unions())
+        if not unions:
+            return ""
+        current = next((union for union in unions if union.is_current), None)
+        if current:
+            return "Partnered" if current.union_type == Union.Type.PARTNERSHIP else "Married"
+        reasons = {union.end_reason for union in unions}
+        if Union.EndReason.DEATH in reasons:
+            return "Widowed"
+        if Union.EndReason.DIVORCE in reasons:
+            return "Divorced"
+        return "Separated"
+
+    @property
+    def current_residence(self):
+        return self.residences.filter(is_current=True).select_related("place").first()
+
+    def record_gaps(self):
+        """Details still missing from this record, in plain words."""
+        gaps = []
+        if not self.birth_date:
+            gaps.append("birth date")
+        if not self.birth_place_id:
+            gaps.append("birthplace")
+        if not self.is_living and not self.death_date:
+            gaps.append("date of death")
+        if not self.photo:
+            gaps.append("photo")
+        if not self.biography.strip():
+            gaps.append("story")
+        return gaps
 
 
 class Union(models.Model):
@@ -297,6 +529,85 @@ class ParentChild(models.Model):
             cls.objects.filter(child=child, union__isnull=True).update(union=union)
 
 
+class YearRange(models.Model):
+    """A stretch of someone's life measured in years, which is often all a family remembers."""
+
+    start_year = models.PositiveSmallIntegerField(null=True, blank=True)
+    end_year = models.PositiveSmallIntegerField(null=True, blank=True)
+
+    class Meta:
+        abstract = True
+        ordering = [F("start_year").asc(nulls_last=True), "pk"]
+
+    def clean(self):
+        if self.start_year and self.end_year and self.end_year < self.start_year:
+            raise ValidationError({"end_year": "The end year cannot be before the start year."})
+
+    @property
+    def years(self):
+        current = getattr(self, "is_current", False)
+        if self.start_year and (self.end_year or current):
+            return f"{self.start_year} – {'present' if current and not self.end_year else self.end_year}"
+        if self.start_year:
+            return f"from {self.start_year}"
+        if self.end_year:
+            return f"until {self.end_year}"
+        return "present" if current else ""
+
+
+class Residence(YearRange):
+    person = models.ForeignKey(Person, on_delete=models.CASCADE, related_name="residences")
+    place = models.ForeignKey(Place, on_delete=models.PROTECT, related_name="residences")
+    is_current = models.BooleanField("lives here now", default=False)
+    notes = models.CharField(max_length=200, blank=True)
+
+    class Meta(YearRange.Meta):
+        verbose_name = "home"
+
+    def __str__(self):
+        return f"{self.person} lived in {self.place}"
+
+
+class Education(YearRange):
+    class Level(models.TextChoices):
+        PRIMARY = "primary", "Primary school"
+        SECONDARY = "secondary", "Secondary school"
+        VOCATIONAL = "vocational", "Vocational / technical"
+        COLLEGE = "college", "College"
+        UNIVERSITY = "university", "University"
+        POSTGRADUATE = "postgraduate", "Postgraduate"
+        OTHER = "other", "Other"
+
+    person = models.ForeignKey(Person, on_delete=models.CASCADE, related_name="education")
+    institution = models.CharField(max_length=160)
+    level = models.CharField(max_length=20, choices=Level.choices, default=Level.OTHER)
+    field_of_study = models.CharField(max_length=120, blank=True)
+    place = models.ForeignKey(Place, null=True, blank=True, on_delete=models.SET_NULL, related_name="education")
+    notes = models.CharField(max_length=200, blank=True)
+
+    class Meta(YearRange.Meta):
+        verbose_name_plural = "education"
+
+    def __str__(self):
+        return f"{self.person} at {self.institution}"
+
+
+class Employment(YearRange):
+    person = models.ForeignKey(Person, on_delete=models.CASCADE, related_name="employment")
+    employer = models.CharField(max_length=160)
+    role = models.CharField(max_length=120, blank=True)
+    place = models.ForeignKey(Place, null=True, blank=True, on_delete=models.SET_NULL, related_name="employment")
+    is_current = models.BooleanField("works here now", default=False)
+    notes = models.CharField(max_length=200, blank=True)
+
+    class Meta(YearRange.Meta):
+        verbose_name = "work"
+        verbose_name_plural = "work"
+
+    def __str__(self):
+        return f"{self.person}: {self.role or 'worked'} at {self.employer}"
+
+
 class LifeEvent(models.Model):
     class Type(models.TextChoices):
         BIRTH = "birth", "Birth"
@@ -313,7 +624,7 @@ class LifeEvent(models.Model):
     event_type = models.CharField(max_length=20, choices=Type.choices, default=Type.OTHER)
     title = models.CharField(max_length=120, blank=True)
     date = models.DateField(null=True, blank=True)
-    place = models.CharField(max_length=120, blank=True)
+    place = models.ForeignKey(Place, null=True, blank=True, on_delete=models.SET_NULL, related_name="events")
     description = models.TextField(blank=True)
 
     class Meta:
@@ -325,6 +636,19 @@ class LifeEvent(models.Model):
     @property
     def heading(self):
         return self.title or self.get_event_type_display()
+
+
+class Bookmark(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="bookmarks")
+    person = models.ForeignKey(Person, on_delete=models.CASCADE, related_name="bookmarked_by")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [models.UniqueConstraint(fields=["user", "person"], name="unique_bookmark")]
+
+    def __str__(self):
+        return f"{self.user} ★ {self.person}"
 
 
 class ContactMessage(models.Model):

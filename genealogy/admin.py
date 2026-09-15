@@ -1,6 +1,18 @@
 from django.contrib import admin
 
-from .models import ContactMessage, LifeEvent, ParentChild, Person, Union
+from .models import (
+    Bookmark,
+    ContactMessage,
+    Education,
+    Employment,
+    LifeEvent,
+    ParentChild,
+    Person,
+    Place,
+    Residence,
+    Tag,
+    Union,
+)
 
 
 class ParentLinkInline(admin.TabularInline):
@@ -31,19 +43,50 @@ class UnionInline(admin.TabularInline):
     verbose_name_plural = "unions (recorded with this person as first partner)"
 
 
+class ResidenceInline(admin.TabularInline):
+    model = Residence
+    extra = 0
+    autocomplete_fields = ["place"]
+    fields = ["place", "start_year", "end_year", "is_current", "notes"]
+
+
+class EducationInline(admin.TabularInline):
+    model = Education
+    extra = 0
+    autocomplete_fields = ["place"]
+    fields = ["institution", "level", "field_of_study", "place", "start_year", "end_year"]
+
+
+class EmploymentInline(admin.TabularInline):
+    model = Employment
+    extra = 0
+    autocomplete_fields = ["place"]
+    fields = ["employer", "role", "place", "start_year", "end_year", "is_current"]
+
+
 class LifeEventInline(admin.TabularInline):
     model = LifeEvent
     extra = 0
+    autocomplete_fields = ["place"]
     fields = ["event_type", "title", "date", "place"]
 
 
 @admin.register(Person)
 class PersonAdmin(admin.ModelAdmin):
     list_display = ["display_name", "gender", "lifespan", "lineage", "is_living", "needs_review", "updated_at"]
-    list_filter = ["gender", "is_living", "needs_review", "lineage"]
+    list_filter = ["gender", "is_living", "needs_review", "lineage", "tags"]
     search_fields = ["first_name", "middle_name", "last_name", "maiden_name", "nickname"]
     readonly_fields = ["created_by", "created_at", "updated_at"]
-    inlines = [ParentLinkInline, ChildLinkInline, UnionInline, LifeEventInline]
+    autocomplete_fields = ["birth_place", "death_place", "homeland", "named_after", "tags"]
+    inlines = [
+        ParentLinkInline,
+        ChildLinkInline,
+        UnionInline,
+        ResidenceInline,
+        EducationInline,
+        EmploymentInline,
+        LifeEventInline,
+    ]
     fieldsets = [
         ("Name", {"fields": [("first_name", "middle_name", "last_name"), ("maiden_name", "nickname"), "gender"]}),
         (
@@ -57,7 +100,8 @@ class PersonAdmin(admin.ModelAdmin):
                 ]
             },
         ),
-        ("Story", {"fields": ["lineage", "photo", "biography", "needs_review"]}),
+        ("Family", {"fields": ["birth_order", "named_after", "homeland", "lineage"]}),
+        ("Story", {"fields": ["photo", "biography", "tags", "needs_review"]}),
         ("Record", {"fields": ["created_by", "created_at", "updated_at"], "classes": ["collapse"]}),
     ]
 
@@ -65,6 +109,22 @@ class PersonAdmin(admin.ModelAdmin):
         if not change and not obj.created_by:
             obj.created_by = request.user
         super().save_model(request, obj, form, change)
+
+
+@admin.register(Place)
+class PlaceAdmin(admin.ModelAdmin):
+    list_display = ["name", "kind", "parent", "latitude", "longitude"]
+    list_filter = ["kind"]
+    search_fields = ["name", "parent__name"]
+    autocomplete_fields = ["parent"]
+
+
+@admin.register(Tag)
+class TagAdmin(admin.ModelAdmin):
+    list_display = ["name", "category", "slug"]
+    list_filter = ["category"]
+    search_fields = ["name"]
+    prepopulated_fields = {"slug": ["name"]}
 
 
 @admin.register(Union)
@@ -88,11 +148,41 @@ class ParentChildAdmin(admin.ModelAdmin):
     autocomplete_fields = ["parent", "child", "union"]
 
 
+@admin.register(Residence)
+class ResidenceAdmin(admin.ModelAdmin):
+    list_display = ["person", "place", "years", "is_current"]
+    list_filter = ["is_current"]
+    search_fields = ["person__first_name", "person__last_name", "place__name"]
+    autocomplete_fields = ["person", "place"]
+
+
+@admin.register(Education)
+class EducationAdmin(admin.ModelAdmin):
+    list_display = ["person", "institution", "level", "years"]
+    list_filter = ["level"]
+    search_fields = ["person__first_name", "person__last_name", "institution", "field_of_study"]
+    autocomplete_fields = ["person", "place"]
+
+
+@admin.register(Employment)
+class EmploymentAdmin(admin.ModelAdmin):
+    list_display = ["person", "employer", "role", "years", "is_current"]
+    list_filter = ["is_current"]
+    search_fields = ["person__first_name", "person__last_name", "employer", "role"]
+    autocomplete_fields = ["person", "place"]
+
+
 @admin.register(LifeEvent)
 class LifeEventAdmin(admin.ModelAdmin):
     list_display = ["person", "heading", "date", "place"]
     list_filter = ["event_type"]
-    search_fields = ["title", "person__first_name", "person__last_name", "place"]
+    search_fields = ["title", "person__first_name", "person__last_name", "place__name"]
+    autocomplete_fields = ["person", "place"]
+
+
+@admin.register(Bookmark)
+class BookmarkAdmin(admin.ModelAdmin):
+    list_display = ["user", "person", "created_at"]
     autocomplete_fields = ["person"]
 
 
