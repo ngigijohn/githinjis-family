@@ -32,6 +32,17 @@
   const CARD_FONT = '"Segoe UI", system-ui, -apple-system, Helvetica, Arial, sans-serif';
   const TEXT_MAX = 140;
 
+  // Network physics, adjustable from the tree page. Values mirror the sliders people see.
+  const PHYSICS_DEFAULTS = { centre: 0.1, repel: 10, linkForce: 0.5, linkDistance: 72, generations: true };
+  const PHYSICS_KEY = "familyTree.physics";
+  function loadPhysics() {
+    try {
+      return Object.assign({}, PHYSICS_DEFAULTS, JSON.parse(localStorage.getItem(PHYSICS_KEY) || "{}"));
+    } catch (error) {
+      return Object.assign({}, PHYSICS_DEFAULTS);
+    }
+  }
+
   const LAYOUT = {
     name: "dagre",
     rankDir: "TB",
@@ -67,6 +78,7 @@
       maleSoft: token("male-soft"),
       rose: token("rose"),
       roseSoft: token("rose-soft"),
+      onBrand: token("on-brand"),
       shadow: dark ? "#000000" : "rgb(60,45,20)",
       shadowOpacity: dark ? 0.5 : 0.14,
     };
@@ -168,6 +180,7 @@
     let branches = [];
     let simulation = null;
     let simNodes = new Map();
+    let physics = Object.assign({}, PHYSICS_DEFAULTS, opts.physics);
 
     if (getComputedStyle(container).position === "static") container.style.position = "relative";
     const bands = document.createElement("canvas");
@@ -234,6 +247,24 @@
         },
         { selector: haloSelector, style: { "background-image": card(true) } },
         {
+          selector: "node[kind = 'person'][role]",
+          style: {
+            label: "data(role)",
+            "font-family": `Inter, ${CARD_FONT}`,
+            "font-size": 11,
+            "font-weight": 700,
+            color: colors.onBrand,
+            "text-valign": "top",
+            "text-halign": "center",
+            "text-margin-y": 16,
+            "text-background-color": colors.brand,
+            "text-background-opacity": 1,
+            "text-background-shape": "round-rectangle",
+            "text-background-padding": 4,
+            "text-events": "no",
+          },
+        },
+        {
           selector: "node[kind = 'union']",
           style: {
             shape: "ellipse",
@@ -294,6 +325,10 @@
           },
         },
         { selector: "node[kind = 'person'][photoData]", style: { "background-image": "data(photoData)", "background-fit": "cover", "background-opacity": 1 } },
+        {
+          selector: "node[kind = 'person'][role]",
+          style: { label: (node) => `${node.data("role")} · ${node.data("label")}`, "font-weight": 700, color: colors.brand, "min-zoomed-font-size": 0 },
+        },
         { selector: "node[kind = 'person']:selected", style: { "border-width": 3, "border-style": "solid", "border-color": colors.brand } },
         {
           selector: "edge",
@@ -374,9 +409,11 @@
         });
     }
 
-    // dagre doesn't know partners belong together and can leave a sibling between a couple.
-    // Reorder each row so partners sit next to each other, reusing the row's x positions.
+    // dagre doesn't know partners belong together and can leave other people between a couple.
+    // Reorder each row so partners are neighbours, pull each couple to a fixed distance,
+    // then push apart anyone overlapping while keeping the row centred where dagre put it.
     function arrangeCouples() {
+      const gap = CARD_W + LAYOUT.nodeSep;
       const rowsByY = new Map();
       cy.nodes("[kind = 'person']").forEach((node) => {
         const y = Math.round(node.position("y"));
@@ -384,23 +421,42 @@
         rowsByY.get(y).push(node);
       });
       rowsByY.forEach((row) => {
-        if (row.length < 3) return;
+        if (row.length < 2) return;
         const slots = row.map((node) => node.position("x")).sort((a, b) => a - b);
         const order = row.slice().sort((a, b) => a.position("x") - b.position("x"));
         const inRow = new Set(order.map((node) => node.id()));
+        const couples = [];
         cy.nodes("[kind = 'union']").forEach((union) => {
           const partners = union.incomers("node[kind = 'person']").filter((partner) => inRow.has(partner.id()));
-          if (partners.length !== 2) return;
-          // Move whoever married in (no recorded parents) next to the partner born into the family.
-          let [anchor, mover] = partners.toArray();
-          if (!hasParents(anchor) && hasParents(mover)) [anchor, mover] = [mover, anchor];
-          if (Math.abs(order.indexOf(anchor) - order.indexOf(mover)) === 1) return;
-          order.splice(order.indexOf(mover), 1);
-          const at = order.indexOf(anchor);
-          const right = order[at + 1];
-          order.splice(right && partnersOf(anchor).has(right) ? at : at + 1, 0, mover);
+          if (partners.length === 2) couples.push(partners.toArray());
         });
-        order.forEach((node, i) => node.position("x", slots[i]));
+        for (let pass = 0; pass < 3; pass++) {
+          let moved = false;
+          couples.forEach(([first, second]) => {
+            // Move whoever married in (no recorded parents) next to the partner born into the family.
+            let [anchor, mover] = [first, second];
+            if (!hasParents(anchor) && hasParents(mover)) [anchor, mover] = [mover, anchor];
+            if (Math.abs(order.indexOf(anchor) - order.indexOf(mover)) === 1) return;
+            moved = true;
+            order.splice(order.indexOf(mover), 1);
+            const at = order.indexOf(anchor);
+            const right = order[at + 1];
+            order.splice(right && partnersOf(anchor).has(right) ? at : at + 1, 0, mover);
+          });
+          if (!moved) break;
+        }
+        const paired = new Set(couples.flatMap(([a, b]) => [`${a.id()}|${b.id()}`, `${b.id()}|${a.id()}`]));
+        const xs = slots.slice();
+        for (let i = 0; i < order.length - 1; i++) {
+          if (paired.has(`${order[i].id()}|${order[i + 1].id()}`)) {
+            const middle = (xs[i] + xs[i + 1]) / 2;
+            xs[i] = middle - gap / 2;
+            xs[i + 1] = middle + gap / 2;
+          }
+        }
+        for (let i = 1; i < xs.length; i++) xs[i] = Math.max(xs[i], xs[i - 1] + gap);
+        const shift = (slots.reduce((sum, x) => sum + x, 0) - xs.reduce((sum, x) => sum + x, 0)) / xs.length;
+        order.forEach((node, i) => node.position("x", xs[i] + shift));
       });
     }
 
@@ -435,6 +491,7 @@
       const ids = new Set();
       const partners = new Map();
       const degree = new Map();
+      const unionTypes = new Map();
       const link = (source, target, data) => {
         const id = `n-${source}-${target}`;
         if (ids.has(id) || ids.has(`n-${target}-${source}`)) return;
@@ -445,13 +502,14 @@
       elements.forEach((element) => {
         const data = element.data;
         if (data.kind === "person") nodes.push({ group: "nodes", data: Object.assign({}, data) });
+        if (data.kind === "union") unionTypes.set(data.id, data.type);
         if (data.kind === "partner") {
           if (!partners.has(data.target)) partners.set(data.target, []);
           partners.get(data.target).push(data.source);
         }
       });
-      partners.forEach((pair) => {
-        if (pair.length === 2) link(pair[0], pair[1], { kind: "partner" });
+      partners.forEach((pair, unionId) => {
+        if (pair.length === 2) link(pair[0], pair[1], { kind: "partner", type: unionTypes.get(unionId) });
       });
       elements.forEach((element) => {
         const data = element.data;
@@ -472,6 +530,20 @@
       simNodes = new Map();
     }
 
+    function applyForces(sim) {
+      const p = physics;
+      sim
+        .force("link")
+        .distance((link) => (link.kind === "partner" ? Math.max(24, p.linkDistance * 0.45) : p.linkDistance))
+        .strength((link) => Math.min(1, (link.kind === "partner" ? 1.8 : 1) * p.linkForce));
+      sim.force("charge").strength(-p.repel * 17);
+      sim.force("x").strength(p.centre * 0.15);
+      sim
+        .force("y")
+        .y((d) => (p.generations ? d.generation * 120 : 0))
+        .strength(p.generations ? 0.03 + p.centre * 0.2 : p.centre * 0.15);
+    }
+
     function startSimulation() {
       return new Promise((resolve) => {
         stopSimulation();
@@ -486,26 +558,25 @@
         const links = cy.edges().map((edge) => ({ source: edge.source().id(), target: edge.target().id(), kind: edge.data("kind") }));
         const sim = d3
           .forceSimulation(nodes)
-          .force("link", d3.forceLink(links).id((d) => d.id).distance((l) => (l.kind === "partner" ? 34 : 72)).strength((l) => (l.kind === "partner" ? 0.9 : 0.5)))
-          .force("charge", d3.forceManyBody().strength(-170).distanceMax(650))
+          .force("link", d3.forceLink(links).id((d) => d.id))
+          .force("charge", d3.forceManyBody().distanceMax(650))
           .force("collide", d3.forceCollide((d) => d.r + 10).strength(0.9))
-          .force("generation", d3.forceY((d) => d.generation * 120).strength(0.05))
-          .force("x", d3.forceX(0).strength(0.015))
+          .force("x", d3.forceX(0))
+          .force("y", d3.forceY())
           .alphaDecay(0.025);
+        applyForces(sim);
         simulation = sim;
 
-        let settled = false;
-        const settle = () => {
-          if (settled) return;
-          settled = true;
-          if (simulation === sim) cy.fit(cy.elements(), LAYOUT.padding);
-          resolve();
-        };
-        sim.on("tick", () => {
-          cy.batch(() => nodes.forEach((d) => d.node.grabbed() || d.node.position({ x: d.x, y: d.y })));
-          if (sim.alpha() < 0.4) settle();
-        });
-        setTimeout(settle, 1800); // animation frames pause in background tabs
+        // Settle most of the way straight away, so the first view is laid out even where animation
+        // frames are paused (a background tab), then let the last of the movement play out live.
+        sim.stop();
+        for (let i = 0; i < 160 && sim.alpha() > 0.08; i++) sim.tick();
+        const place = () => cy.batch(() => nodes.forEach((d) => d.node.grabbed() || d.node.position({ x: d.x, y: d.y })));
+        place();
+        cy.fit(cy.elements(), LAYOUT.padding);
+        sim.on("tick", place);
+        sim.alpha(Math.max(sim.alpha(), 0.12)).restart();
+        resolve();
       });
     }
 
@@ -615,19 +686,94 @@
 
     // ---- Interaction -------------------------------------------------------
 
-    // Parents, partners and children, with the lines that join them.
-    function firstLevel(node) {
-      if (layoutMode === "network") return node.closedNeighborhood();
-      const asPartner = node.outgoers("node[kind = 'union']");
-      const asChild = node.incomers("node[kind = 'union']");
-      const people = asPartner
-        .incomers("node[kind = 'person']")
-        .union(asPartner.outgoers("node[kind = 'person']"))
-        .union(asChild.incomers("node[kind = 'person']"))
-        .union(node.incomers("node[kind = 'person']"))
-        .union(node.outgoers("node[kind = 'person']"));
-      const near = node.union(people).union(asPartner).union(asChild);
-      return near.union(near.edgesWith(near));
+    // ---- Close family (hover) ---------------------------------------------------
+
+    const ROLE_WORDS = {
+      parent: { M: "Father", F: "Mother", other: "Parent" },
+      child: { M: "Son", F: "Daughter", other: "Child" },
+      partner: { M: "Husband", F: "Wife", other: "Partner" },
+      sibling: { M: "Brother", F: "Sister", other: "Sibling" },
+    };
+
+    function roleName(kind, node, detail) {
+      const words = ROLE_WORDS[kind];
+      const word = words[node.data("gender")] || words.other;
+      if (kind === "partner") return detail === "partnership" ? "Partner" : word;
+      if (detail === "half") return `Half-${word.toLowerCase()}`;
+      if (detail === "step") return `Step${word.toLowerCase()}`;
+      if (detail === "adopted") return `${kind === "parent" ? "Adoptive" : "Adopted"} ${word.toLowerCase()}`;
+      if (detail === "foster") return `Foster ${word.toLowerCase()}`;
+      return word;
+    }
+
+    // Works on both layouts: in the tree, couples meet at a union node; in the network, links are direct.
+    function parentLinks(node) {
+      const links = [];
+      node.incomers("edge[kind = 'child']").forEach((edge) => {
+        const source = edge.source();
+        const rtype = edge.data("rtype");
+        if (source.data("kind") === "union") {
+          source.incomers("node[kind = 'person']").forEach((parent) => links.push({ node: parent, rtype, via: source }));
+        } else {
+          links.push({ node: source, rtype, via: null });
+        }
+      });
+      return links;
+    }
+
+    function childLinks(node) {
+      const links = node.outgoers("edge[kind = 'child']").map((edge) => ({ node: edge.target(), rtype: edge.data("rtype"), via: null }));
+      node.outgoers("node[kind = 'union']").forEach((union) => {
+        union.outgoers("edge[kind = 'child']").forEach((edge) => links.push({ node: edge.target(), rtype: edge.data("rtype"), via: union }));
+      });
+      return links;
+    }
+
+    function partnerLinks(node) {
+      if (layoutMode === "network") {
+        return node.connectedEdges("[kind = 'partner']").map((edge) => ({
+          node: edge.source().same(node) ? edge.target() : edge.source(),
+          type: edge.data("type"),
+          via: null,
+        }));
+      }
+      return node
+        .outgoers("node[kind = 'union']")
+        .map((union) => union.incomers("node[kind = 'person']").difference(node).map((partner) => ({ node: partner, type: union.data("type"), via: union })))
+        .flat();
+    }
+
+    function birthParentIds(node) {
+      const links = parentLinks(node);
+      const biological = links.filter((link) => (link.rtype || "biological") === "biological");
+      return new Set((biological.length ? biological : links).map((link) => link.node.id()));
+    }
+
+    // Parents, partners, children and siblings, each named relative to ``node``.
+    function closeFamily(node) {
+      const roles = new Map();
+      let near = node;
+      const add = (link, role) => {
+        if (link.node.same(node) || roles.has(link.node.id())) return;
+        roles.set(link.node.id(), role);
+        near = near.union(link.node);
+        if (link.via) near = near.union(link.via);
+      };
+      const parents = parentLinks(node);
+      parents.forEach((link) => add(link, roleName("parent", link.node, link.rtype)));
+      partnerLinks(node).forEach((link) => add(link, roleName("partner", link.node, link.type)));
+      childLinks(node).forEach((link) => add(link, roleName("child", link.node, link.rtype)));
+
+      const mine = birthParentIds(node);
+      parents.forEach((parent) => {
+        childLinks(parent.node).forEach((link) => {
+          if (link.node.same(node) || roles.has(link.node.id())) return;
+          const theirs = birthParentIds(link.node);
+          const full = theirs.size === mine.size && [...theirs].every((id) => mine.has(id));
+          add(link, roleName("sibling", link.node, full ? "" : "half"));
+        });
+      });
+      return { near: near.union(near.edgesWith(near)), roles };
     }
 
     // Every ancestor and descendant, plus the person's partners.
@@ -667,12 +813,17 @@
       keep.edges().addClass("highlight");
     }
 
-    const clearNear = () => cy.batch(() => cy.elements().removeClass("dimmed near"));
+    const clearNear = () =>
+      cy.batch(() => {
+        cy.elements().removeClass("dimmed near");
+        cy.nodes("[role]").removeData("role");
+      });
     function showNear(node) {
-      const near = firstLevel(node);
+      const { near, roles } = closeFamily(node);
       cy.batch(() => {
         cy.elements().not(near).addClass("dimmed");
         near.addClass("near");
+        roles.forEach((role, id) => cy.$id(id).data("role", role));
       });
     }
 
@@ -760,6 +911,13 @@
         cy.autoungrabify(layoutMode !== "network");
         applyStyle();
       },
+      setPhysics(values) {
+        physics = Object.assign({}, PHYSICS_DEFAULTS, values);
+        if (simulation) {
+          applyForces(simulation);
+          simulation.alpha(0.6).restart();
+        }
+      },
       refreshTheme() {
         colors = readTheme();
         applyStyle();
@@ -829,6 +987,13 @@
       down: config.down,
       colorMode: "gender",
       layout: config.layout === "network" ? "network" : "tree",
+      physics: loadPhysics(),
+      physicsControls: [
+        { key: "centre", label: "Centre force", min: 0, max: 1, step: 0.01 },
+        { key: "repel", label: "Repel force", min: 0, max: 20, step: 0.1 },
+        { key: "linkForce", label: "Link force", min: 0, max: 1, step: 0.01 },
+        { key: "linkDistance", label: "Link distance", min: 20, max: 300, step: 1 },
+      ],
       branches: [],
       canEdit: config.canEdit,
       selected: null,
@@ -843,6 +1008,7 @@
         graph = createGraph(this.$refs.canvas, {
           endpoint: config.endpoint,
           layout: config.layout,
+          physics: Object.assign({}, this.physics),
           onSelect: (data) => {
             this.selected = data;
             this.panelOpen = Boolean(data);
@@ -1003,6 +1169,21 @@
         this.reload().then(() => {
           if (this.selected) graph.focus(this.selected.pk);
         });
+      },
+
+      updatePhysics() {
+        const values = JSON.parse(JSON.stringify(this.physics));
+        graph.setPhysics(values);
+        try {
+          localStorage.setItem(PHYSICS_KEY, JSON.stringify(values));
+        } catch (error) {
+          // Private windows can refuse storage; the sliders still work for this visit.
+        }
+      },
+
+      resetPhysics() {
+        this.physics = Object.assign({}, PHYSICS_DEFAULTS);
+        this.updatePhysics();
       },
 
       setColorMode(mode) {

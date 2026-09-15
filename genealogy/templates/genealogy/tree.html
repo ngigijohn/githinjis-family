@@ -58,6 +58,27 @@
         <p class="mt-2 text-xs text-muted" x-text="layout === 'network' ? 'Relatives pull together and everyone else makes room. Drag anyone to move their family.' : 'Generations in rows, with couples side by side.'"></p>
       </div>
 
+      <div x-show="layout === 'network'" x-cloak class="space-y-4 rounded-2xl border border-line p-4">
+        <div class="flex items-center justify-between">
+          <p class="text-sm font-semibold">Forces</p>
+          <button type="button" @click="resetPhysics()" class="text-xs text-muted hover:text-brand">Reset</button>
+        </div>
+        <template x-for="control in physicsControls" :key="control.key">
+          <div>
+            <div class="flex justify-between text-xs text-muted">
+              <label :for="`physics-${control.key}`" x-text="control.label"></label>
+              <span class="tabular-nums" x-text="Number(physics[control.key]).toFixed(control.step < 1 ? 2 : 0)"></span>
+            </div>
+            <input type="range" class="w-full" :id="`physics-${control.key}`" :min="control.min" :max="control.max" :step="control.step"
+                   x-model.number="physics[control.key]" @input="updatePhysics()">
+          </div>
+        </template>
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" id="physics-generations" class="h-4 w-4 rounded border-line text-brand focus:ring-brand/30" x-model="physics.generations" @change="updatePhysics()">
+          Keep generations in rows
+        </label>
+      </div>
+
       <div>
         <p class="label">View</p>
         <div class="grid grid-cols-2 gap-1 rounded-full bg-bg p-1">
@@ -129,7 +150,7 @@
       </div>
 
       <p class="rounded-2xl bg-brand-soft/60 p-4 text-xs leading-relaxed text-muted">
-        <span class="font-semibold text-ink">Tip:</span> hover over anyone to see their parents, partners and children. Type a name above, or click someone, to follow their ancestors and descendants. Scroll or pinch to zoom.
+        <span class="font-semibold text-ink">Tip:</span> hover over anyone to see their parents, partners, children and siblings, each labelled. Type a name above, or click someone, to follow their ancestors and descendants. Scroll or pinch to zoom.
       </p>
     </div>
   </aside>
