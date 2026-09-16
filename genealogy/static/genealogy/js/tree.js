@@ -181,6 +181,8 @@
     let simulation = null;
     let simNodes = new Map();
     let physics = Object.assign({}, PHYSICS_DEFAULTS, opts.physics);
+    let gatherTimer = 0;
+    let placeNodes = () => {};
 
     if (getComputedStyle(container).position === "static") container.style.position = "relative";
     const bands = document.createElement("canvas");
@@ -572,6 +574,7 @@
         sim.stop();
         for (let i = 0; i < 160 && sim.alpha() > 0.08; i++) sim.tick();
         const place = () => cy.batch(() => nodes.forEach((d) => d.node.grabbed() || d.node.position({ x: d.x, y: d.y })));
+        placeNodes = place;
         place();
         cy.fit(cy.elements(), LAYOUT.padding);
         sim.on("tick", place);
@@ -802,6 +805,59 @@
       return keep.union(keep.edgesWith(keep));
     }
 
+    function siblingsOf(node) {
+      let siblings = cy.collection();
+      parentLinks(node).forEach((parent) => {
+        childLinks(parent.node).forEach((link) => {
+          if (!link.node.same(node)) siblings = siblings.union(link.node);
+        });
+      });
+      return siblings;
+    }
+
+    // Double-clicking someone draws their brothers and sisters in around them: in the network by
+    // pulling them together for a moment, in the tree (where rows are fixed) by framing the family.
+    function gatherSiblings(node) {
+      const siblings = siblingsOf(node);
+      const count = siblings.length;
+      if (!count) return { count };
+      showNear(node);
+      clearTimeout(gatherTimer);
+
+      if (layoutMode !== "network" || !simulation) {
+        cy.animate({ fit: { eles: node.union(siblings), padding: LAYOUT.padding } }, { duration: 500 });
+        gatherTimer = setTimeout(clearNear, 2600);
+        return { count };
+      }
+
+      const centre = simNodes.get(node.id());
+      const pulled = siblings.map((person) => simNodes.get(person.id())).filter(Boolean);
+      if (!centre || !pulled.length) return { count };
+      const anchor = { x: centre.x, y: centre.y };
+      simulation.force("gather", (alpha) => {
+        pulled.forEach((d) => {
+          d.vx += (anchor.x - d.x) * 0.35 * alpha;
+          d.vy += (anchor.y - d.y) * 0.35 * alpha;
+        });
+        centre.vx += (anchor.x - centre.x) * 0.2 * alpha;
+        centre.vy += (anchor.y - centre.y) * 0.2 * alpha;
+      });
+      simulation.alpha(0.6).alphaTarget(0.3).restart();
+      if (document.hidden) {
+        // No animation frames in a background tab, so settle it now instead.
+        for (let i = 0; i < 90; i++) simulation.tick();
+        placeNodes();
+      }
+      gatherTimer = setTimeout(() => {
+        if (simulation) {
+          simulation.force("gather", null);
+          simulation.alphaTarget(0);
+        }
+        clearNear();
+      }, 2400);
+      return { count };
+    }
+
     function clearHighlight() {
       cy.elements().removeClass("faded highlight");
     }
@@ -827,11 +883,31 @@
       });
     }
 
+    let lastTap = { id: null, at: 0 };
+    let lastGather = 0;
+
+    function handleDoubleTap(node) {
+      const now = Date.now();
+      if (opts.mini || now - lastGather < 500) return;
+      lastGather = now;
+      lastTap = { id: null, at: 0 };
+      const result = gatherSiblings(node);
+      opts.onGather && opts.onGather(node.data(), result);
+    }
+
     cy.on("tap", "node[kind = 'person']", (event) => {
       const node = event.target;
+      const now = Date.now();
+      if (!opts.mini && lastTap.id === node.id() && now - lastTap.at < 400) {
+        handleDoubleTap(node);
+        return;
+      }
+      lastTap = { id: node.id(), at: now };
       if (!opts.mini) highlightLine(node);
       opts.onSelect && opts.onSelect(node.data());
     });
+    // Some builds emit their own double-tap event; the guard above keeps it from running twice.
+    cy.on("dbltap", "node[kind = 'person']", (event) => handleDoubleTap(event.target));
     cy.on("tap", (event) => {
       if (event.target === cy) {
         clearHighlight();
@@ -911,6 +987,10 @@
         cy.autoungrabify(layoutMode !== "network");
         applyStyle();
       },
+      gather(pk) {
+        const node = cy.$id(`p${pk}`);
+        return node.nonempty() ? gatherSiblings(node) : { count: 0 };
+      },
       setPhysics(values) {
         physics = Object.assign({}, PHYSICS_DEFAULTS, values);
         if (simulation) {
@@ -975,6 +1055,7 @@
   window.treeExplorer = function (config) {
     let graph = null; // kept outside Alpine's reactive proxy
     let remoteTimer = 0;
+    let gatherMessageTimer = 0;
 
     return {
       loading: true,
@@ -1003,12 +1084,14 @@
       results: [],
       active: -1,
       searched: false,
+      gathered: "",
 
       init() {
         graph = createGraph(this.$refs.canvas, {
           endpoint: config.endpoint,
           layout: config.layout,
           physics: Object.assign({}, this.physics),
+          onGather: (person, result) => this.announceGather(person, result),
           onSelect: (data) => {
             this.selected = data;
             this.panelOpen = Boolean(data);
@@ -1169,6 +1252,17 @@
         this.reload().then(() => {
           if (this.selected) graph.focus(this.selected.pk);
         });
+      },
+
+      announceGather(person, result) {
+        const name = (person.name || person.label).split(" ")[0];
+        this.gathered = result.count
+          ? `Brought ${name}'s ${result.count} ${result.count === 1 ? "sibling" : "siblings"} closer.`
+          : `No brothers or sisters are recorded for ${name}.`;
+        clearTimeout(gatherMessageTimer);
+        gatherMessageTimer = setTimeout(() => {
+          this.gathered = "";
+        }, 3200);
       },
 
       updatePhysics() {

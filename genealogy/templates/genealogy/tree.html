@@ -150,7 +150,7 @@
       </div>
 
       <p class="rounded-2xl bg-brand-soft/60 p-4 text-xs leading-relaxed text-muted">
-        <span class="font-semibold text-ink">Tip:</span> hover over anyone to see their parents, partners, children and siblings, each labelled. Type a name above, or click someone, to follow their ancestors and descendants. Scroll or pinch to zoom.
+        <span class="font-semibold text-ink">Tip:</span> hover over anyone to see their parents, partners, children and siblings, each labelled. Double-click someone to draw their brothers and sisters in around them. Type a name above, or click someone, to follow their ancestors and descendants. Scroll or pinch to zoom.
       </p>
     </div>
   </aside>
@@ -176,6 +176,10 @@
       <button type="button" @click="download()" class="rounded-xl p-2 text-muted hover:bg-brand-soft hover:text-brand" title="Download as image" aria-label="Download as image">
         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14"/></svg>
       </button>
+    </div>
+
+    <div x-cloak x-show="gathered" x-transition.opacity class="pointer-events-none absolute bottom-6 left-1/2 z-10 -translate-x-1/2">
+      <p class="card px-4 py-2 text-sm shadow-soft" x-text="gathered"></p>
     </div>
 
     <div x-show="loading" x-transition.opacity class="absolute inset-0 z-10 flex items-center justify-center bg-bg/60">
