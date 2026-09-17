@@ -30,6 +30,8 @@
   const UNION_SIZE = 26;
   // SVG images can't use the page's web fonts, so cards use system fonts and are measured with them.
   const CARD_FONT = '"Segoe UI", system-ui, -apple-system, Helvetica, Arial, sans-serif';
+  // Dates on a card are set in mono, the way they read elsewhere on the site.
+  const CARD_MONO = '"IBM Plex Mono", Consolas, "Courier New", monospace';
   const TEXT_MAX = 140;
 
   // Network physics, adjustable from the tree page. Values mirror the sliders people see.
@@ -73,7 +75,8 @@
       brand: token("brand"),
       brandBand: token("brand", 0.045),
       accent: token("accent"),
-      accentLine: token("accent", 0.7),
+      accentLine: token("ink", 0.45),
+      inkLine: token("ink", 0.7),
       male: token("male"),
       maleSoft: token("male-soft"),
       rose: token("rose"),
@@ -151,9 +154,9 @@
       }
       parts.push(`<circle cx="44" cy="48" r="22" fill="none" stroke="${tone.ring}" stroke-width="2.5"${dead ? ' stroke-dasharray="3 3"' : ""}/>`);
       parts.push(`<text x="78" y="${nameY}" ${font} font-size="13.5" font-weight="600" fill="${dead ? colors.muted : colors.ink}">${name}</text>`);
-      parts.push(`<text x="78" y="${subY}" ${font} font-size="12" fill="${colors.muted}">${sub}</text>`);
+      parts.push(`<text x="78" y="${subY}" font-family='${CARD_MONO.replace(/"/g, "")}' font-size="11.5" fill="${colors.muted}">${sub}</text>`);
       if (badge) {
-        parts.push(`<text x="78" y="74" ${font} font-size="11" font-weight="600" fill="${colors.accent}">${badge}</text>`);
+        parts.push(`<text x="78" y="74" ${font} font-size="11" font-weight="600" fill="${colors.muted}">${badge}</text>`);
       }
       return svgUri(parts.join(""), CARD_W, CARD_H);
     });
@@ -163,8 +166,8 @@
     return cached(`union|${colors.surface}|${colors.accent}`, () =>
       svgUri(
         `<circle cx="13" cy="13" r="12" fill="${colors.surface}" stroke="${colors.line}"/>` +
-          `<circle cx="9.8" cy="13" r="5.3" fill="none" stroke="${colors.accent}" stroke-width="2"/>` +
-          `<circle cx="16.2" cy="13" r="5.3" fill="none" stroke="${colors.accent}" stroke-width="2"/>`,
+          `<circle cx="9.8" cy="13" r="5.3" fill="none" stroke="${colors.inkLine}" stroke-width="2"/>` +
+          `<circle cx="16.2" cy="13" r="5.3" fill="none" stroke="${colors.inkLine}" stroke-width="2"/>`,
         UNION_SIZE,
         UNION_SIZE
       )
@@ -349,11 +352,11 @@
       const interaction = [
         { selector: ".faded", style: { opacity: 0.18 } },
         { selector: "edge.highlight", style: { "line-color": (edge) => (colorMode === "branch" && branchColor(edge.target())) || colors.brand, width: 2.8, opacity: 1 } },
-        { selector: "edge.highlight[kind = 'partner']", style: { "line-color": colors.accent, width: 2.6 } },
+        { selector: "edge.highlight[kind = 'partner']", style: { "line-color": colors.ink, width: 2.6 } },
         { selector: ".dimmed", style: { opacity: 0.1 } },
         { selector: "node.near", style: { opacity: 1, "min-zoomed-font-size": 0, "font-weight": 600, "z-index": 10 } },
         { selector: "edge.near", style: { opacity: 1, "line-color": colors.brand, width: 2.6, "z-index": 9 } },
-        { selector: "edge.near[kind = 'partner']", style: { "line-color": colors.accent } },
+        { selector: "edge.near[kind = 'partner']", style: { "line-color": colors.ink } },
       ];
       return [{ selector: "node", style: { "overlay-opacity": 0 } }, ...(layoutMode === "network" ? network : tree), ...interaction];
     }

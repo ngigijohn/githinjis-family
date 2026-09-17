@@ -52,7 +52,7 @@
   {% for group in decades %}
   <div class="relative pb-10">
     <div class="sticky top-20 z-10 -mx-2 mb-6 inline-block rounded-full bg-bg/90 px-4 py-1.5 backdrop-blur">
-      <h2 class="font-display text-2xl tabular-nums text-brand">{{ group.decade }}s</h2>
+      <h2 class="tabular text-2xl font-semibold text-ink">{{ group.decade }}s</h2>
     </div>
     <ol class="timeline space-y-5">
       {% for entry in group.entries %}
@@ -66,7 +66,7 @@
             <span class="text-muted">{{ entry.label }}</span>
             {% if entry.place %}<span class="text-muted">in <a href="{{ entry.place.get_absolute_url }}" class="hover:text-brand">{{ entry.place }}</a></span>{% endif %}
           </p>
-          <p class="text-sm tabular-nums text-muted">{{ entry.date|date:"j M Y" }}</p>
+          <p class="tabular text-sm text-muted">{{ entry.date|date:"j M Y" }}</p>
         </div>
         <p class="text-xs text-muted">
           {% if entry.generation %}Generation {{ entry.generation }}{% endif %}

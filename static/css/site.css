@@ -1,44 +1,47 @@
 /* Design tokens. Tailwind colours reference these, so dark mode only swaps values here. */
 :root {
-  --bg: 250 246 238;
+  --bg: 244 245 246;
   --surface: 255 255 255;
-  --ink: 29 39 36;
-  --muted: 96 108 102;
-  --line: 229 221 206;
-  --brand: 17 94 89;
-  --brand-strong: 11 70 66;
-  --brand-soft: 222 239 234;
+  --ink: 21 24 28;
+  --muted: 102 110 120;
+  --line: 216 220 225;
+  /* "Brand" is ink: buttons, links and anything you can act on. No third colour. */
+  --brand: 21 24 28;
+  --brand-strong: 44 49 56;
+  --brand-soft: 232 234 237;
   --on-brand: 255 255 255;
-  --accent: 184 116 22;
-  --accent-soft: 250 237 211;
-  --rose: 178 70 96;
-  --rose-soft: 249 228 233;
-  --male: 49 110 196;
-  --male-soft: 225 235 250;
-  --stage: 244 239 228;
+  /* Amber is reserved for attention: gaps in the records, things awaiting review. */
+  --accent: 138 90 16;
+  --accent-soft: 246 235 214;
+  --rose: 188 74 124;
+  --rose-soft: 250 224 236;
+  --male: 27 79 143;
+  --male-soft: 223 232 244;
+  --stage: 238 240 242;
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: 15 21 20;
-    --surface: 23 31 30;
-    --ink: 236 232 223;
-    --muted: 160 170 165;
-    --line: 46 58 55;
-    --brand: 96 196 178;
-    --brand-strong: 134 214 200;
-    --brand-soft: 26 52 49;
-    --on-brand: 10 26 24;
-    --accent: 236 178 86;
-    --accent-soft: 56 43 22;
-    --rose: 236 146 166;
-    --rose-soft: 58 31 39;
-    --male: 128 172 238;
-    --male-soft: 27 39 62;
-    --stage: 19 27 26;
+    --bg: 16 17 19;
+    --surface: 24 26 29;
+    --ink: 238 240 243;
+    --muted: 150 158 168;
+    --line: 44 48 54;
+    --brand: 238 240 243;
+    --brand-strong: 255 255 255;
+    --brand-soft: 38 42 48;
+    --on-brand: 21 24 28;
+    --accent: 211 162 74;
+    --accent-soft: 51 41 26;
+    --rose: 224 143 180;
+    --rose-soft: 58 36 49;
+    --male: 127 169 212;
+    --male-soft: 29 43 58;
+    --stage: 19 21 25;
     color-scheme: dark;
   }
+
 }
 
 [x-cloak] { display: none !important; }
@@ -47,11 +50,11 @@ html { scroll-behavior: smooth; }
 
 ::selection { background: rgb(var(--accent) / 0.25); }
 
-/* Subtle paper texture for hero sections */
+/* A faint wash on hero sections; no colour, just depth. */
 .paper {
   background-image:
-    radial-gradient(circle at 20% 10%, rgb(var(--accent) / 0.10), transparent 45%),
-    radial-gradient(circle at 85% 30%, rgb(var(--brand) / 0.10), transparent 40%);
+    radial-gradient(circle at 20% 10%, rgb(var(--ink) / 0.045), transparent 48%),
+    radial-gradient(circle at 85% 30%, rgb(var(--ink) / 0.03), transparent 42%);
 }
 
 /* Generation bands are drawn by tree.js on top of this ground. */
@@ -83,3 +86,6 @@ input[type="range"] { accent-color: rgb(var(--brand)); }
   html { scroll-behavior: auto; }
   *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
 }
+
+/* Dates, years and counts line up like a register. */
+.tabular { font-family: "IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }

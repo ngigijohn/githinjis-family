@@ -3,7 +3,7 @@
   {% avatar person "md" %}
   <div class="min-w-0">
     <p class="truncate font-semibold text-ink group-hover:text-brand">{{ person.display_name }}</p>
-    <p class="truncate text-sm text-muted">{{ person|lifespan_for:user|default:"Dates not recorded" }}</p>
+    <p class="tabular truncate text-sm text-muted">{{ person|lifespan_for:user|default:"Dates not recorded" }}</p>
     {% if person.lineage or person.tags.all %}
     <div class="mt-1.5 flex flex-wrap gap-1">
       {% if person.lineage %}<span class="chip">{{ person.lineage }}</span>{% endif %}

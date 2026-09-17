@@ -8,7 +8,7 @@
   <link rel="icon" href="{% static 'img/favicon.svg' %}" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{% static 'css/site.css' %}">
   {# Tailwind's Play CDN keeps the project build-free; see README for a production CSS build. #}
   <script src="https://cdn.tailwindcss.com/3.4.17?plugins=forms,typography"></script>
@@ -24,8 +24,13 @@
             male: token("male"), "male-soft": token("male-soft"),
           },
           fontFamily: {
-            display: ['"Playfair Display"', "Georgia", "serif"],
-            sans: ["Inter", "system-ui", "-apple-system", "Segoe UI", "sans-serif"],
+            display: ['"Outfit"', "system-ui", "sans-serif"],
+            sans: ['"IBM Plex Sans"', "system-ui", "-apple-system", "Segoe UI", "sans-serif"],
+            mono: ['"IBM Plex Mono"', "ui-monospace", "monospace"],
+          },
+          // Slightly rounded everywhere; pills stay fully round.
+          borderRadius: {
+            sm: "4px", DEFAULT: "6px", md: "6px", lg: "8px", xl: "8px", "2xl": "10px", "3xl": "12px",
           },
           boxShadow: {
             soft: "0 1px 2px rgb(0 0 0 / 0.04), 0 12px 32px -16px rgb(0 0 0 / 0.18)",
@@ -36,7 +41,7 @@
   </script>
   <style type="text/tailwindcss">
     @layer components {
-      .btn { @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full px-5 py-2.5 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 disabled:cursor-not-allowed disabled:opacity-50; }
+      .btn { @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg px-5 py-2.5 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 disabled:cursor-not-allowed disabled:opacity-50; }
       .btn-primary { @apply bg-brand text-on-brand shadow-soft hover:bg-brand-strong; }
       .btn-secondary { @apply border border-line bg-surface text-ink hover:border-brand/50 hover:text-brand; }
       .btn-ghost { @apply text-muted hover:bg-brand-soft hover:text-brand; }
@@ -46,10 +51,10 @@
       .input { @apply block w-full rounded-xl border-line bg-surface px-3.5 py-2.5 text-sm text-ink placeholder:text-muted/60 focus:border-brand focus:ring-brand/30; }
       .label { @apply mb-1.5 block text-sm font-medium text-ink; }
       .chip { @apply inline-flex items-center gap-1.5 rounded-full bg-brand-soft px-2.5 py-0.5 text-xs font-medium text-brand; }
-      .eyebrow { @apply text-xs font-semibold uppercase tracking-[0.18em] text-accent; }
+      .eyebrow { @apply font-mono text-xs font-semibold uppercase tracking-[0.18em] text-muted; }
       .nav-link { @apply rounded-full px-3.5 py-2 text-sm font-medium text-muted transition hover:bg-brand-soft/60 hover:text-ink; }
       .nav-link-active { @apply bg-brand-soft text-brand hover:text-brand; }
-      .section-title { @apply font-display text-3xl text-ink sm:text-4xl; }
+      .section-title { @apply font-display text-3xl tracking-tight text-ink sm:text-4xl; }
     }
   </style>
   <script src="{% static 'genealogy/js/picker.js' %}"></script>

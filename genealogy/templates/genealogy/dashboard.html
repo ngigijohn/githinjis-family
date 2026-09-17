@@ -24,7 +24,7 @@
       {% for label, value in counts.items %}
       <div class="card p-4">
         <dt class="text-xs uppercase tracking-wider text-muted">{{ label|title }}</dt>
-        <dd class="mt-1 font-display text-3xl tabular-nums">{{ value|intcomma }}</dd>
+        <dd class="tabular mt-1 text-3xl font-semibold">{{ value|intcomma }}</dd>
       </div>
       {% endfor %}
     </dl>
