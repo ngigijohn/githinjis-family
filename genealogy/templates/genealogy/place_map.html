@@ -4,12 +4,45 @@
 {% block footer %}{% endblock %}
 
 {% block head %}
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/5.8.0/maplibre-gl.css">
+{# Alpine starts as soon as the DOM is parsed, so MapLibre must be defined before it. Pinned to 5.x because the 6.x releases on this CDN publish stylesheets only. #}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/5.8.0/maplibre-gl.js"></script>
 <style>
-  .leaflet-container { background: rgb(var(--stage)); font-family: Inter, system-ui, sans-serif; }
-  .leaflet-popup-content-wrapper, .leaflet-popup-tip { background: rgb(var(--surface)); color: rgb(var(--ink)); }
-  .leaflet-popup-content { margin: 0.85rem 1rem; }
-  .leaflet-bar a { background: rgb(var(--surface)); color: rgb(var(--ink)); border-color: rgb(var(--line)); }
+  .maplibregl-map { font-family: Inter, system-ui, sans-serif; background: rgb(var(--stage)); }
+  .maplibregl-popup-content {
+    background: rgb(var(--surface));
+    color: rgb(var(--ink));
+    border: 1px solid rgb(var(--line));
+    border-radius: 14px;
+    padding: 0.85rem 1rem;
+    box-shadow: 0 12px 32px -16px rgb(0 0 0 / 0.5);
+  }
+  .maplibregl-popup-tip { border-top-color: rgb(var(--surface)); border-bottom-color: rgb(var(--surface)); }
+  .maplibregl-popup-close-button { color: rgb(var(--muted)); font-size: 1.1rem; padding: 0 0.35rem; }
+  .maplibregl-ctrl-group { background: rgb(var(--surface)); border: 1px solid rgb(var(--line)); }
+  .maplibregl-ctrl-group button + button { border-top-color: rgb(var(--line)); }
+  .maplibregl-ctrl-attrib { background: rgb(var(--surface) / 0.85) !important; color: rgb(var(--muted)); }
+  .maplibregl-ctrl-attrib a { color: rgb(var(--muted)); }
+  .place-dot {
+    border-radius: 999px;
+    background: rgb(var(--brand) / 0.35);
+    border: 2px solid rgb(var(--brand));
+    cursor: pointer;
+    transition: transform .15s;
+  }
+  .place-dot:hover { transform: scale(1.15); }
+  .journey-stop {
+    display: flex;
+    height: 26px;
+    width: 26px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: rgb(var(--accent));
+    color: rgb(var(--on-brand));
+    font: 600 12px Inter, system-ui, sans-serif;
+    box-shadow: 0 2px 6px rgb(0 0 0 / 0.35);
+  }
 </style>
 {% endblock %}
 
@@ -56,10 +89,10 @@
             <p class="font-semibold" x-text="journey.person.label"></p>
             <button type="button" @click="clearJourney()" class="text-xs text-muted hover:text-brand">Clear</button>
           </div>
-          <ol class="mt-3 space-y-3 border-l-2 border-brand/40 pl-4">
+          <ol class="mt-3 space-y-3 border-l-2 border-accent/40 pl-4">
             <template x-for="(step, i) in journey.steps" :key="i">
               <li class="relative">
-                <span class="absolute -left-[1.35rem] top-1.5 h-2.5 w-2.5 rounded-full bg-brand ring-4 ring-surface" aria-hidden="true"></span>
+                <span class="absolute -left-[1.35rem] top-1.5 h-2.5 w-2.5 rounded-full bg-accent ring-4 ring-surface" aria-hidden="true"></span>
                 <button type="button" @click="flyTo(step)" class="text-left">
                   <span class="block text-sm font-medium" x-text="step.name"></span>
                   <span class="block text-xs text-muted"><span x-text="step.what"></span><span x-show="step.year" x-text="` · ${step.year}`"></span></span>
@@ -74,7 +107,7 @@
       <div>
         <p class="label">Showing</p>
         <ul class="space-y-2 text-sm text-muted">
-          <li class="flex items-center gap-3"><span class="flex w-7 justify-center"><span class="h-4 w-4 rounded-full bg-brand/70 ring-2 ring-brand"></span></span>A place, sized by how many relatives it connects to</li>
+          <li class="flex items-center gap-3"><span class="flex w-7 justify-center"><span class="h-4 w-4 rounded-full border-2 border-brand bg-brand/40"></span></span>A place, sized by how many relatives it connects to</li>
           <li class="flex items-center gap-3"><span class="w-7 border-t-2 border-dashed border-accent"></span>One person's journey, in order</li>
         </ul>
       </div>
@@ -88,17 +121,17 @@
   <div class="relative min-w-0 flex-1">
     <div id="family-map" class="absolute inset-0" role="application" aria-label="Map of places connected to the family"></div>
 
-    <div class="absolute left-4 top-4 z-[1000] lg:hidden">
+    <div class="absolute left-4 top-4 z-10 lg:hidden">
       <button type="button" class="btn btn-secondary btn-sm shadow-soft" @click="panelOpen = true">☰ Places</button>
     </div>
 
-    <div x-show="loading" x-transition.opacity class="absolute inset-0 z-[1000] flex items-center justify-center bg-bg/60">
+    <div x-show="loading" x-transition.opacity class="absolute inset-0 z-10 flex items-center justify-center bg-bg/60">
       <div class="card flex items-center gap-3 px-5 py-3 text-sm text-muted">
         <span class="h-4 w-4 animate-spin rounded-full border-2 border-brand border-t-transparent"></span> Drawing the map…
       </div>
     </div>
 
-    <div x-cloak x-show="error" class="absolute inset-0 z-[1000] flex items-center justify-center p-6">
+    <div x-cloak x-show="error" class="absolute inset-0 z-10 flex items-center justify-center p-6">
       <div class="card max-w-sm p-6 text-center">
         <p class="font-semibold">The map could not be loaded</p>
         <p class="mt-2 text-sm text-muted" x-text="error"></p>
@@ -109,14 +142,14 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
 <script>
   function familyMap(config) {
     let map = null;
-    let markers = null;
-    let path = null;
+    let placeMarkers = [];
+    let journeyMarkers = [];
 
     const token = (name) => `rgb(${getComputedStyle(document.documentElement).getPropertyValue(`--${name}`).trim().split(/\s+/).join(",")})`;
+    const escape = (value) => String(value).replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch]);
 
     return {
       loading: true,
@@ -127,20 +160,27 @@
       journey: null,
 
       async init() {
-        map = L.map("family-map", { zoomControl: true, worldCopyJump: true }).setView([0.5, 37], 6);
-        // OpenStreetMap's own servers block embedded apps and Carto's free tiles are watermarked,
-        // so use Esri's plain canvas basemap in the shade that matches the reader's theme.
+        // OpenFreeMap serves OpenStreetMap data free, with no key and no rate limit.
         const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-        const canvas = dark ? "World_Dark_Gray_Base" : "World_Light_Gray_Base";
-        L.tileLayer(`https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/${canvas}/MapServer/tile/{z}/{y}/{x}`, {
-          maxZoom: 16,
-          attribution: 'Tiles &copy; <a href="https://www.esri.com/">Esri</a> &mdash; sources: Esri, HERE, Garmin, &copy; OpenStreetMap contributors',
-        }).addTo(map);
-        markers = L.layerGroup().addTo(map);
+        map = new maplibregl.Map({
+          container: "family-map",
+          style: `https://tiles.openfreemap.org/styles/${dark ? "dark" : "positron"}`,
+          center: [37, 0.5],
+          zoom: 5,
+          attributionControl: { compact: true },
+        });
+        map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+
         try {
-          const response = await fetch(config.placesEndpoint, { headers: { Accept: "application/json" } });
-          if (!response.ok) throw new Error(`Places request failed with status ${response.status}`);
-          this.draw((await response.json()).places);
+          const ready = new Promise((resolve) => (map.loaded() ? resolve() : map.once("load", resolve)));
+          const [places] = await Promise.all([
+            fetch(config.placesEndpoint, { headers: { Accept: "application/json" } }).then((response) => {
+              if (!response.ok) throw new Error(`Places request failed with status ${response.status}`);
+              return response.json();
+            }),
+            ready,
+          ]);
+          this.draw(places.places);
         } catch (err) {
           console.error(err);
           this.error = "We couldn't load the family's places. Please check your connection and try again.";
@@ -150,18 +190,16 @@
       },
 
       draw(places) {
-        const brand = token("brand");
         const biggest = Math.max(1, ...places.map((place) => place.count));
-        const bounds = [];
+        const bounds = new maplibregl.LngLatBounds();
         places.forEach((place) => {
-          const radius = 7 + 16 * Math.sqrt(place.count / biggest);
-          const marker = L.circleMarker([place.lat, place.lon], {
-            radius,
-            color: brand,
-            weight: 2,
-            fillColor: brand,
-            fillOpacity: 0.35,
-          });
+          const size = Math.round(14 + 32 * Math.sqrt(place.count / biggest));
+          const dot = document.createElement("button");
+          dot.type = "button";
+          dot.className = "place-dot";
+          dot.style.width = `${size}px`;
+          dot.style.height = `${size}px`;
+          dot.setAttribute("aria-label", `${place.label}: ${place.count} relatives`);
           const parts = [
             place.born ? `${place.born} born` : "",
             place.lived ? `${place.lived} lived` : "",
@@ -169,16 +207,16 @@
             place.worked ? `${place.worked} worked` : "",
             place.died ? `${place.died} died` : "",
           ].filter(Boolean);
-          marker.bindPopup(
-            `<strong>${place.label}</strong><br>` +
-              `<span style="color:${token("muted")}">${place.count} ${place.count === 1 ? "relative" : "relatives"} connected` +
+          const popup = new maplibregl.Popup({ offset: size / 2 + 6, closeButton: true }).setHTML(
+            `<strong>${escape(place.label)}</strong><br>` +
+              `<span style="color:${token("muted")};font-size:13px">${place.count} ${place.count === 1 ? "relative" : "relatives"} connected` +
               (parts.length ? ` · ${parts.join(", ")}` : "") +
-              `</span><br><a href="${place.url}" style="color:${brand};font-weight:600">Open ${place.name} →</a>`
+              `</span><br><a href="${place.url}" style="color:${token("brand")};font-weight:600;font-size:13px">Open ${escape(place.name)} →</a>`
           );
-          marker.addTo(markers);
-          bounds.push([place.lat, place.lon]);
+          placeMarkers.push(new maplibregl.Marker({ element: dot }).setLngLat([place.lon, place.lat]).setPopup(popup).addTo(map));
+          bounds.extend([place.lon, place.lat]);
         });
-        if (bounds.length) map.fitBounds(bounds, { padding: [40, 40] });
+        if (!bounds.isEmpty()) map.fitBounds(bounds, { padding: 60, maxZoom: 9, duration: 0 });
       },
 
       async search() {
@@ -202,39 +240,43 @@
       },
 
       drawJourney() {
-        if (path) map.removeLayer(path);
-        path = null;
+        journeyMarkers.forEach((marker) => marker.remove());
+        journeyMarkers = [];
+        if (map.getLayer("journey-line")) map.removeLayer("journey-line");
+        if (map.getSource("journey")) map.removeSource("journey");
+
         const steps = this.journey ? this.journey.steps : [];
-        if (steps.length < 1) return;
-        const points = steps.map((step) => [step.lat, step.lon]);
-        path = L.layerGroup().addTo(map);
+        if (!steps.length) return;
+        const points = steps.map((step) => [step.lon, step.lat]);
         if (points.length > 1) {
-          L.polyline(points, { color: token("accent"), weight: 3, dashArray: "8 8", opacity: 0.9 }).addTo(path);
+          map.addSource("journey", { type: "geojson", data: { type: "Feature", geometry: { type: "LineString", coordinates: points } } });
+          map.addLayer({
+            id: "journey-line",
+            type: "line",
+            source: "journey",
+            layout: { "line-cap": "round", "line-join": "round" },
+            paint: { "line-color": token("accent"), "line-width": 3, "line-dasharray": [2, 2], "line-opacity": 0.9 },
+          });
         }
         steps.forEach((step, index) => {
-          L.marker([step.lat, step.lon], {
-            icon: L.divIcon({
-              className: "",
-              html: `<span style="display:flex;height:26px;width:26px;align-items:center;justify-content:center;border-radius:999px;background:${token("accent")};color:${token("on-brand")};font:600 12px Inter,sans-serif;box-shadow:0 2px 6px rgb(0 0 0/.35)">${index + 1}</span>`,
-              iconSize: [26, 26],
-              iconAnchor: [13, 13],
-            }),
-          })
-            .bindTooltip(`${step.what}${step.year ? ` · ${step.year}` : ""} · ${step.name}`)
-            .addTo(path);
+          const pin = document.createElement("div");
+          pin.className = "journey-stop";
+          pin.textContent = index + 1;
+          pin.title = `${step.what}${step.year ? ` · ${step.year}` : ""} · ${step.name}`;
+          journeyMarkers.push(new maplibregl.Marker({ element: pin }).setLngLat([step.lon, step.lat]).addTo(map));
         });
-        map.fitBounds(points, { padding: [60, 60], maxZoom: 9 });
+        const bounds = points.reduce((box, point) => box.extend(point), new maplibregl.LngLatBounds(points[0], points[0]));
+        map.fitBounds(bounds, { padding: 80, maxZoom: 9, duration: 800 });
       },
 
       flyTo(step) {
-        map.flyTo([step.lat, step.lon], 9, { duration: 0.8 });
+        map.flyTo({ center: [step.lon, step.lat], zoom: 9, duration: 800 });
       },
 
       clearJourney() {
         this.journey = null;
         this.query = "";
-        if (path) map.removeLayer(path);
-        path = null;
+        this.drawJourney();
       },
     };
   }
