@@ -3,16 +3,20 @@ from django import forms
 from genealogy.forms import CHECKBOX_CLASS, DateInput, PlaceFieldsMixin, StyledFormMixin, place_field
 from genealogy.models import Person
 
-from .models import Photo, Recording
+from .models import Document, Photo, Recording
 
 
-class PhotoForm(StyledFormMixin, forms.ModelForm):
-    people = forms.ModelMultipleChoiceField(
+def people_field(label):
+    return forms.ModelMultipleChoiceField(
         queryset=Person.objects.all(),
         required=False,
         widget=forms.CheckboxSelectMultiple(attrs={"class": CHECKBOX_CLASS}),
-        label="Who is in this photo?",
+        label=label,
     )
+
+
+class PhotoForm(StyledFormMixin, forms.ModelForm):
+    people = people_field("Who is in this photo?")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -30,18 +34,8 @@ class PhotoForm(StyledFormMixin, forms.ModelForm):
 class RecordingForm(PlaceFieldsMixin, StyledFormMixin, forms.ModelForm):
     place_fields = ("place",)
     place = place_field("Where it was recorded")
-    speakers = forms.ModelMultipleChoiceField(
-        queryset=Person.objects.all(),
-        required=False,
-        widget=forms.CheckboxSelectMultiple(attrs={"class": CHECKBOX_CLASS}),
-        label="Who is speaking?",
-    )
-    people = forms.ModelMultipleChoiceField(
-        queryset=Person.objects.all(),
-        required=False,
-        widget=forms.CheckboxSelectMultiple(attrs={"class": CHECKBOX_CLASS}),
-        label="Who do they talk about?",
-    )
+    speakers = people_field("Who is speaking?")
+    people = people_field("Who do they talk about?")
     field_order = ["title", "audio", "language", "recorded_on", "place", "description", "transcript", "speakers", "people"]
 
     class Meta:
@@ -57,3 +51,22 @@ class RecordingForm(PlaceFieldsMixin, StyledFormMixin, forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["audio"].widget.attrs.update({"accept": "audio/*"})
         self.fields["language"].widget.attrs.update({"list": "language-options", "autocomplete": "off"})
+
+
+class DocumentForm(PlaceFieldsMixin, StyledFormMixin, forms.ModelForm):
+    place_fields = ("place",)
+    place = place_field("Where it was issued or written")
+    people = people_field("Who does it concern?")
+    field_order = ["title", "document_type", "file", "date", "date_approx", "place", "description", "source", "privacy", "people"]
+
+    class Meta:
+        model = Document
+        fields = ["title", "document_type", "file", "date", "date_approx", "description", "source", "privacy", "people"]
+        widgets = {
+            "date": DateInput(),
+            "description": forms.Textarea(attrs={"rows": 3, "placeholder": "What the document says, and anything it tells the family."}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["file"].widget.attrs.update({"accept": ".pdf,image/*,.txt,.doc,.docx"})

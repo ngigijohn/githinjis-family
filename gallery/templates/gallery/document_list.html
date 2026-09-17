@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% load family %}
+
+{% block title %}Documents · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+<section class="paper border-b border-line">
+  <div class="mx-auto flex max-w-7xl flex-wrap items-end justify-between gap-6 px-4 py-12 sm:px-6 lg:px-8">
+    <div class="max-w-2xl">
+      <p class="eyebrow">Memories</p>
+      <h1 class="mt-3 font-display text-4xl sm:text-5xl">{% if selected_person %}Documents about {{ selected_person.full_name }}{% else %}The family archive{% endif %}</h1>
+      <p class="mt-3 text-muted">Certificates, land papers, school records, letters and clippings: the papers that prove and tell the family's history.</p>
+      {% include "gallery/_tabs.html" with active="documents" %}
+    </div>
+    <div class="flex flex-wrap items-center gap-3">
+      {% if types %}
+      <form method="get">
+        <label for="type-filter" class="sr-only">Kind of document</label>
+        <select id="type-filter" name="type" class="input" onchange="this.form.submit()">
+          <option value="">All kinds</option>
+          {% for value, label in types %}<option value="{{ value }}" {% if filters.type == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </form>
+      {% endif %}
+      {% if perms.gallery.add_document %}<a href="{% url 'gallery:document_add' %}" class="btn btn-primary">Add a document</a>{% endif %}
+    </div>
+  </div>
+</section>
+
+<div class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+  {% if hidden_count and not user.is_authenticated %}
+    <p class="mb-6 rounded-2xl border border-accent/30 bg-accent-soft/60 p-4 text-sm">
+      {{ hidden_count }} document{{ hidden_count|pluralize }} {{ hidden_count|pluralize:"is,are" }} kept for family only, because certificates hold private details.
+      <a href="{% url 'accounts:login' %}?next={{ request.path|urlencode }}" class="font-semibold text-brand hover:underline">Sign in to see {{ hidden_count|pluralize:"it,them" }}</a>.
+    </p>
+  {% endif %}
+
+  {% if documents %}
+  <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    {% for document in documents %}
+    <a href="{{ document.get_absolute_url }}" class="group card flex flex-col gap-3 p-5 transition hover:-translate-y-0.5 hover:border-brand/40">
+      <div class="flex items-start justify-between gap-3">
+        <span class="chip bg-brand-soft text-brand">{{ document.get_document_type_display }}</span>
+        <span class="text-xs font-semibold tabular-nums text-muted">{{ document.extension }}</span>
+      </div>
+      {% if document.is_image %}
+        <img src="{{ document.file.url }}" alt="" loading="lazy" class="aspect-[4/3] w-full rounded-xl object-cover">
+      {% else %}
+        <span class="flex aspect-[4/3] w-full items-center justify-center rounded-xl border border-dashed border-line bg-bg text-3xl text-muted" aria-hidden="true">📄</span>
+      {% endif %}
+      <div class="min-w-0">
+        <p class="truncate font-semibold group-hover:text-brand">{{ document.title }}</p>
+        <p class="truncate text-sm text-muted">
+          {% if document.date %}{% if document.date_approx %}around {{ document.date|date:"Y" }}{% else %}{{ document.date|date:"j M Y" }}{% endif %}{% else %}Date not recorded{% endif %}
+          {% if document.place %} · {{ document.place }}{% endif %}
+        </p>
+        {% if document.people.all %}
+          <p class="mt-1 truncate text-xs text-muted">{% for person in document.people.all %}{{ person.first_name }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+        {% endif %}
+      </div>
+      {% if document.privacy == "family" %}<span class="text-xs text-muted">🔒 Family only</span>{% endif %}
+    </a>
+    {% endfor %}
+  </div>
+  {% include "includes/pagination.html" %}
+  {% else %}
+  <div class="card mx-auto max-w-lg p-10 text-center">
+    <p class="font-display text-2xl">No documents yet</p>
+    <p class="mt-2 text-sm text-muted">Birth and marriage certificates, land papers, school records and letters all belong here. A photograph of a document on a phone is enough.</p>
+    {% if perms.gallery.add_document %}<a href="{% url 'gallery:document_add' %}" class="btn btn-primary mt-6">Add the first document</a>{% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

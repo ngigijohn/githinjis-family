@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% load family %}
+
+{% block title %}{% if object %}Edit document{% else %}Add a document{% endif %} · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-3xl px-4 py-10 sm:px-6">
+  <a href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'gallery:document_list' %}{% endif %}" class="text-sm text-muted hover:text-brand">← Back</a>
+  <h1 class="mt-4 font-display text-4xl">{% if object %}Edit document{% else %}Add a document{% endif %}</h1>
+  <p class="mt-2 text-muted">A clear photograph of a certificate or letter works as well as a scan. PDFs, images and text files are accepted.</p>
+
+  <form method="post" enctype="multipart/form-data" class="card mt-8 space-y-6 p-6 sm:p-8" x-data="{ q: '' }">
+    {% csrf_token %}
+    {% include "includes/form_errors.html" %}
+    {% form_datalists %}
+
+    {% include "includes/field.html" with field=form.title %}
+    <div class="grid gap-4 sm:grid-cols-2">
+      {% include "includes/field.html" with field=form.document_type %}
+      {% include "includes/field.html" with field=form.file %}
+    </div>
+    <div class="grid gap-4 sm:grid-cols-3">
+      {% include "includes/field.html" with field=form.date %}
+      {% include "includes/field.html" with field=form.place %}
+      {% include "includes/field.html" with field=form.privacy %}
+    </div>
+    {% include "includes/field.html" with field=form.date_approx %}
+    {% include "includes/field.html" with field=form.description %}
+    {% include "includes/field.html" with field=form.source %}
+
+    <div>
+      <p class="label">{{ form.people.label }}</p>
+      <input type="search" x-model="q" class="input" placeholder="Filter names…" aria-label="Filter people">
+      <div class="mt-2 grid max-h-64 gap-1 overflow-auto rounded-xl border border-line p-2 sm:grid-cols-2">
+        {% for choice in form.people %}
+          <label class="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-brand-soft" x-show="'{{ choice.choice_label|lower|escapejs }}'.includes(q.toLowerCase())">{{ choice.tag }}<span class="text-sm">{{ choice.choice_label }}</span></label>
+        {% empty %}
+          <p class="p-2 text-sm text-muted">No family members yet.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-3">
+      <button class="btn btn-primary px-6">{% if object %}Save changes{% else %}Add to the archive{% endif %}</button>
+      <a href="{% if object %}{{ object.get_absolute_url }}{% else %}{% url 'gallery:document_list' %}{% endif %}" class="btn btn-ghost">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

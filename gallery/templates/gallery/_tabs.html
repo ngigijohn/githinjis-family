@@ -1,4 +1,5 @@
-<nav class="mt-5 inline-grid grid-cols-2 gap-1 rounded-full bg-bg p-1" aria-label="Memories">
+<nav class="mt-5 inline-grid grid-cols-3 gap-1 rounded-full bg-bg p-1" aria-label="Memories">
   <a href="{% url 'gallery:photo_list' %}" class="rounded-full px-5 py-1.5 text-center text-sm font-medium {% if active == 'photos' %}bg-surface text-brand shadow-soft{% else %}text-muted hover:text-ink{% endif %}"{% if active == 'photos' %} aria-current="page"{% endif %}>Photos</a>
   <a href="{% url 'gallery:recording_list' %}" class="rounded-full px-5 py-1.5 text-center text-sm font-medium {% if active == 'recordings' %}bg-surface text-brand shadow-soft{% else %}text-muted hover:text-ink{% endif %}"{% if active == 'recordings' %} aria-current="page"{% endif %}>Recordings</a>
+  <a href="{% url 'gallery:document_list' %}" class="rounded-full px-5 py-1.5 text-center text-sm font-medium {% if active == 'documents' %}bg-surface text-brand shadow-soft{% else %}text-muted hover:text-ink{% endif %}"{% if active == 'documents' %} aria-current="page"{% endif %}>Documents</a>
 </nav>

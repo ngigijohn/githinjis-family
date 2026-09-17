@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 
-from .models import Photo, Recording
+from .models import Document, Photo, Recording
 
 
 class UploaderAdmin(admin.ModelAdmin):
@@ -31,4 +31,13 @@ class RecordingAdmin(UploaderAdmin):
     list_filter = ["language"]
     search_fields = ["title", "description", "transcript", "speakers__first_name", "people__first_name"]
     autocomplete_fields = ["place", "speakers", "people"]
+    readonly_fields = ["uploaded_by", "created_at"]
+
+
+@admin.register(Document)
+class DocumentAdmin(UploaderAdmin):
+    list_display = ["title", "document_type", "date", "place", "privacy", "uploaded_by", "created_at"]
+    list_filter = ["document_type", "privacy"]
+    search_fields = ["title", "description", "source", "people__first_name", "people__last_name"]
+    autocomplete_fields = ["place", "people"]
     readonly_fields = ["uploaded_by", "created_at"]

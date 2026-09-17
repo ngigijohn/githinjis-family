@@ -18,6 +18,7 @@ EDITOR_PERMISSIONS = {
     "gallery": {
         "photo": ["add", "change", "delete", "view"],
         "recording": ["add", "change", "delete", "view"],
+        "document": ["add", "change", "delete", "view"],
     },
 }
 

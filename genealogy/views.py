@@ -12,6 +12,7 @@ from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
 
 from gallery.models import Photo, Recording
+from gallery.views import visible_documents
 
 from .forms import (
     ContactForm,
@@ -319,6 +320,7 @@ class PersonDetailView(DetailView):
                 "events": person.events.select_related("place__parent"),
                 "photos": person.photos.all()[:12],
                 "recordings": Recording.objects.filter(Q(speakers=person) | Q(people=person)).distinct(),
+                "documents": visible_documents(user).filter(people=person),
                 "history": self.history(person, show_private, can_edit),
                 "current_home": person.residences.filter(is_current=True).select_related("place__parent").first(),
                 "namesakes": person.namesakes.all(),

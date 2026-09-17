@@ -264,6 +264,31 @@
     </section>
     {% endif %}
 
+    <!-- Documents -->
+    {% if documents or perms.gallery.add_document %}
+    <section class="card p-6">
+      <div class="flex items-center justify-between gap-4">
+        <h2 class="font-display text-2xl">Documents</h2>
+        {% if perms.gallery.add_document %}<a href="{% url 'gallery:document_add' %}?person={{ person.pk }}" class="btn btn-secondary btn-sm">Add document</a>{% endif %}
+      </div>
+      {% if documents %}
+        <ul class="mt-5 divide-y divide-line">
+          {% for document in documents %}
+          <li class="flex items-center justify-between gap-3 py-3">
+            <div class="min-w-0">
+              <a href="{{ document.get_absolute_url }}" class="block truncate font-medium hover:text-brand">{{ document.title }}</a>
+              <p class="truncate text-xs text-muted">{{ document.get_document_type_display }}{% if document.date %} · {{ document.date|date:"Y" }}{% endif %}{% if document.privacy == "family" %} · 🔒 Family only{% endif %}</p>
+            </div>
+            <span class="flex-none text-xs font-semibold text-muted">{{ document.extension }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="mt-3 text-muted">No documents for {{ person.first_name }} yet. A photograph of a certificate or letter is enough.</p>
+      {% endif %}
+    </section>
+    {% endif %}
+
     <!-- Photos -->
     <section class="card p-6">
       <div class="flex items-center justify-between gap-4">

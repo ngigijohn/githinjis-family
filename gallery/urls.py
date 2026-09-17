@@ -14,4 +14,9 @@ urlpatterns = [
     path("recordings/<int:pk>/", views.RecordingDetailView.as_view(), name="recording_detail"),
     path("recordings/<int:pk>/edit/", views.RecordingUpdateView.as_view(), name="recording_edit"),
     path("recordings/<int:pk>/delete/", views.RecordingDeleteView.as_view(), name="recording_delete"),
+    path("documents/", views.DocumentListView.as_view(), name="document_list"),
+    path("documents/add/", views.DocumentCreateView.as_view(), name="document_add"),
+    path("documents/<int:pk>/", views.DocumentDetailView.as_view(), name="document_detail"),
+    path("documents/<int:pk>/edit/", views.DocumentUpdateView.as_view(), name="document_edit"),
+    path("documents/<int:pk>/delete/", views.DocumentDeleteView.as_view(), name="document_delete"),
 ]

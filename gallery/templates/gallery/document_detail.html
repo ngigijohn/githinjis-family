@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% load family %}
+
+{% block title %}{{ document.title }} · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+<section class="paper border-b border-line">
+  <div class="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+    <nav class="text-sm text-muted" aria-label="Breadcrumb">
+      <a href="{% url 'gallery:document_list' %}" class="hover:text-brand">Documents</a>
+      <span class="mx-1.5">/</span><span class="text-ink">{{ document.title }}</span>
+    </nav>
+    <div class="mt-5 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+      <div>
+        <div class="flex flex-wrap gap-2">
+          <span class="chip bg-brand-soft text-brand">{{ document.get_document_type_display }}</span>
+          {% if document.privacy == "family" %}<span class="chip bg-line/70 text-muted">🔒 Family only</span>{% endif %}
+        </div>
+        <h1 class="mt-3 font-display text-4xl leading-tight sm:text-5xl">{{ document.title }}</h1>
+        <p class="mt-2 text-muted">
+          {% if document.date %}{% if document.date_approx %}around {{ document.date|date:"Y" }}{% else %}{{ document.date|date:"j F Y" }}{% endif %}{% else %}Date not recorded{% endif %}
+          {% if document.place %} · <a href="{{ document.place.get_absolute_url }}" class="hover:text-brand">{{ document.place }}</a>{% endif %}
+        </p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <a href="{{ document.file.url }}" class="btn btn-primary" target="_blank" rel="noopener">Open the file ↗</a>
+        {% if perms.gallery.change_document %}<a href="{% url 'gallery:document_edit' document.pk %}" class="btn btn-secondary">Edit</a>{% endif %}
+        {% if perms.gallery.delete_document %}<a href="{% url 'gallery:document_delete' document.pk %}" class="btn btn-ghost text-rose hover:bg-rose-soft hover:text-rose">Delete</a>{% endif %}
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="mx-auto grid max-w-6xl gap-8 px-4 py-10 sm:px-6 lg:grid-cols-3 lg:px-8">
+  <div class="lg:col-span-2">
+    <div class="card overflow-hidden p-3">
+      {% if document.is_image %}
+        <img src="{{ document.file.url }}" alt="{{ document.title }}" class="w-full rounded-xl">
+      {% elif document.is_pdf %}
+        <iframe src="{{ document.file.url }}" title="{{ document.title }}" class="h-[70vh] w-full rounded-xl border border-line"></iframe>
+      {% else %}
+        <div class="flex flex-col items-center gap-3 p-16 text-center">
+          <span class="text-5xl" aria-hidden="true">📄</span>
+          <p class="text-muted">{{ document.extension }} file</p>
+          <a href="{{ document.file.url }}" class="btn btn-secondary" target="_blank" rel="noopener">Open it</a>
+        </div>
+      {% endif %}
+    </div>
+    {% if document.description %}
+    <section class="card mt-6 p-6">
+      <h2 class="font-display text-xl">About this document</h2>
+      <p class="mt-3">{{ document.description|linebreaksbr }}</p>
+    </section>
+    {% endif %}
+  </div>
+
+  <aside class="space-y-6">
+    <section class="card p-6">
+      <h2 class="font-display text-xl">Who it concerns</h2>
+      {% if document.people.all %}
+        <ul class="mt-3 divide-y divide-line">
+          {% for person in document.people.all %}
+          <li class="flex items-center gap-3 py-2.5">
+            {% avatar person "sm" %}
+            <a href="{{ person.get_absolute_url }}" class="min-w-0 truncate text-sm font-medium hover:text-brand">{{ person.display_name }}</a>
+          </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="mt-3 text-sm text-muted">Nobody linked yet.</p>
+      {% endif %}
+    </section>
+
+    <section class="card p-6">
+      <h2 class="font-display text-xl">Where it came from</h2>
+      <p class="mt-3 text-sm {% if not document.source %}text-muted{% endif %}">{{ document.source|default:"Source not recorded. Saying where a record came from helps the next generation trust it." }}</p>
+      {% if document.uploaded_by %}<p class="mt-3 text-xs text-muted">Added by {{ document.uploaded_by.get_username }} on {{ document.created_at|date:"j M Y" }}</p>{% endif %}
+    </section>
+  </aside>
+</div>
+{% endblock %}
