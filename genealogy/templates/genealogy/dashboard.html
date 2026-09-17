@@ -130,6 +130,23 @@
     {% endif %}
   </section>
 
+  <!-- Take the records with you -->
+  <section class="card p-6 lg:col-span-3">
+    <div class="flex flex-wrap items-end justify-between gap-4">
+      <div class="max-w-2xl">
+        <h2 class="font-display text-2xl">Take the records with you</h2>
+        <p class="mt-2 text-sm text-muted">
+          GEDCOM is the file other genealogy programs read, so the family is never locked in here.
+          Download it, keep a copy somewhere safe, and open it in Ancestry, MyHeritage, Gramps or anything else.
+        </p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <a href="{% url 'genealogy:gedcom_export' %}" class="btn btn-secondary">Download everything</a>
+        <a href="{% url 'genealogy:gedcom_export' %}?living=no" class="btn btn-ghost">Without living relatives' dates</a>
+      </div>
+    </div>
+  </section>
+
   <!-- Recent memories -->
   <section class="card p-6 lg:col-span-3">
     <div class="flex items-center justify-between gap-4">

@@ -1,5 +1,7 @@
 from collections import defaultdict
+from datetime import date
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth.mixins import PermissionRequiredMixin
@@ -160,6 +162,22 @@ def dashboard(request):
         "total_people": people,
     }
     return render(request, "genealogy/dashboard.html", context)
+
+
+@login_required
+def gedcom_export(request):
+    """Download the whole family as GEDCOM, the format other genealogy programs read."""
+    from django.http import HttpResponse
+
+    from .services.gedcom import export
+
+    include_living = request.GET.get("living") != "no"
+    text = export(site_name=settings.SITE_NAME, include_living=include_living)
+    stamp = date.today().isoformat()
+    suffix = "" if include_living else "-without-living"
+    response = HttpResponse(text, content_type="text/vnd.familysearch.gedcom; charset=utf-8")
+    response["Content-Disposition"] = f'attachment; filename="family-{stamp}{suffix}.ged"'
+    return response
 
 
 def place_connections():

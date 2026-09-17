@@ -22,6 +22,7 @@ urlpatterns = [
     path("events/<int:pk>/delete/", views.event_delete, name="event_delete"),
     path("history/<str:kind>/<int:pk>/delete/", views.history_delete, name="history_delete"),
     path("bookmarks/", views.bookmarks, name="bookmarks"),
+    path("export.ged", views.gedcom_export, name="gedcom_export"),
     path("places/", views.place_list, name="place_list"),
     path("places/map/", views.place_map, name="place_map"),
     path("places/<int:pk>/", views.place_detail, name="place_detail"),
