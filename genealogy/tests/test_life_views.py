@@ -133,6 +133,30 @@ class LifeHistoryViewTests(TestCase):
         self.assertEqual(recording.place, self.othaya)
         self.assertEqual(list(recording.speakers.all()), [self.f.gm])
 
+    def test_map_page_and_places_api(self):
+        self.othaya.latitude, self.othaya.longitude = -0.5467, 36.9434
+        self.othaya.save()
+        self.assertEqual(self.client.get(reverse("genealogy:place_map")).status_code, 200)
+        places = self.client.get(reverse("genealogy:api_places")).json()["places"]
+        othaya = next(place for place in places if place["pk"] == self.othaya.pk)
+        self.assertEqual(othaya["label"], "Othaya, Nyeri, Kenya")
+        self.assertEqual((othaya["lat"], othaya["lon"]), (-0.5467, 36.9434))
+        self.assertGreaterEqual(othaya["count"], 1)
+        self.assertEqual(othaya["lived"], 1)
+
+    def test_journey_hides_current_home_of_living_relatives(self):
+        self.othaya.latitude, self.othaya.longitude = -0.5467, 36.9434
+        self.othaya.save()
+        url = reverse("genealogy:api_journey")
+        anonymous = self.client.get(url, {"person": self.f.me.pk}).json()
+        self.assertNotIn(self.othaya.pk, [step["pk"] for step in anonymous["steps"]])
+
+        self.client.force_login(self.editor)
+        signed_in = self.client.get(url, {"person": self.f.me.pk}).json()
+        self.assertEqual([step["pk"] for step in signed_in["steps"]], [self.othaya.pk])
+        self.assertEqual(signed_in["steps"][0]["what"], "Lived here now")
+        self.assertEqual(self.client.get(url).status_code, 400)
+
     def test_tree_api_includes_card_details(self):
         self.client.force_login(self.editor)
         data = self.client.get(reverse("genealogy:api_tree"), {"root": self.f.me.pk}).json()

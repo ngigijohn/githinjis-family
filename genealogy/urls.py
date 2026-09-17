@@ -22,6 +22,7 @@ urlpatterns = [
     path("history/<str:kind>/<int:pk>/delete/", views.history_delete, name="history_delete"),
     path("bookmarks/", views.bookmarks, name="bookmarks"),
     path("places/", views.place_list, name="place_list"),
+    path("places/map/", views.place_map, name="place_map"),
     path("places/<int:pk>/", views.place_detail, name="place_detail"),
     path("tags/", views.tag_list, name="tag_list"),
     path("tags/<slug:slug>/", views.tag_detail, name="tag_detail"),
@@ -31,4 +32,6 @@ urlpatterns = [
     path("api/tree/", api.tree_data, name="api_tree"),
     path("api/people/search/", api.people_search, name="api_people_search"),
     path("api/relationship/", api.relationship_data, name="api_relationship"),
+    path("api/places/", api.places_data, name="api_places"),
+    path("api/journey/", api.journey_data, name="api_journey"),
 ]

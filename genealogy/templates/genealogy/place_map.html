@@ -1,0 +1,242 @@
+{% extends "base.html" %}
+
+{% block title %}Family map · {{ SITE_NAME }}{% endblock %}
+{% block footer %}{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<style>
+  .leaflet-container { background: rgb(var(--stage)); font-family: Inter, system-ui, sans-serif; }
+  .leaflet-popup-content-wrapper, .leaflet-popup-tip { background: rgb(var(--surface)); color: rgb(var(--ink)); }
+  .leaflet-popup-content { margin: 0.85rem 1rem; }
+  .leaflet-bar a { background: rgb(var(--surface)); color: rgb(var(--ink)); border-color: rgb(var(--line)); }
+</style>
+{% endblock %}
+
+{% block content %}
+{{ config|json_script:"map-config" }}
+<div x-data="familyMap(JSON.parse(document.getElementById('map-config').textContent))" class="relative flex h-[calc(100vh-4rem)] overflow-hidden">
+
+  <aside :class="panelOpen ? 'translate-x-0' : '-translate-x-full'"
+         class="absolute inset-y-0 left-0 z-20 flex w-80 max-w-[88vw] flex-col overflow-y-auto border-r border-line bg-surface/95 backdrop-blur transition-transform duration-300 lg:static lg:translate-x-0">
+    <div class="flex items-start justify-between gap-2 border-b border-line p-5">
+      <div>
+        <h1 class="font-display text-2xl">Family map</h1>
+        <p class="mt-1 text-xs text-muted">{{ mapped_count }} place{{ mapped_count|pluralize }} on the map{% if unmapped_count %} · {{ unmapped_count }} without coordinates{% endif %}</p>
+      </div>
+      <button type="button" class="rounded-full p-1.5 text-muted hover:bg-brand-soft lg:hidden" @click="panelOpen = false" aria-label="Hide panel">✕</button>
+    </div>
+
+    <div class="space-y-7 p-5">
+      <div class="inline-grid w-full grid-cols-2 gap-1 rounded-full bg-bg p-1">
+        <a href="{% url 'genealogy:place_list' %}" class="rounded-full px-4 py-1.5 text-center text-sm font-medium text-muted hover:text-ink">List</a>
+        <span class="rounded-full bg-surface px-4 py-1.5 text-center text-sm font-semibold text-brand shadow-soft" aria-current="page">Map</span>
+      </div>
+
+      <div class="relative" @click.outside="results = []">
+        <label for="map-search" class="label">Follow someone's journey</label>
+        <input id="map-search" type="text" class="input" placeholder="Start typing a name…" autocomplete="off"
+               role="combobox" aria-controls="map-search-results" :aria-expanded="results.length > 0"
+               x-model="query" @input.debounce.200ms="search()" @keydown.enter.prevent="choose(results[0])">
+        <ul id="map-search-results" role="listbox" x-cloak x-show="results.length" class="card absolute z-30 mt-2 max-h-64 w-full overflow-auto p-1.5">
+          <template x-for="person in results" :key="person.pk">
+            <li>
+              <button type="button" @click="choose(person)" class="flex w-full flex-col rounded-xl px-3 py-2 text-left hover:bg-brand-soft">
+                <span class="text-sm font-medium" x-text="person.label"></span>
+                <span class="text-xs text-muted" x-text="person.lifespan || 'Dates not recorded'"></span>
+              </button>
+            </li>
+          </template>
+        </ul>
+      </div>
+
+      <template x-if="journey">
+        <div class="rounded-2xl border border-line p-4">
+          <div class="flex items-start justify-between gap-2">
+            <p class="font-semibold" x-text="journey.person.label"></p>
+            <button type="button" @click="clearJourney()" class="text-xs text-muted hover:text-brand">Clear</button>
+          </div>
+          <ol class="mt-3 space-y-3 border-l-2 border-brand/40 pl-4">
+            <template x-for="(step, i) in journey.steps" :key="i">
+              <li class="relative">
+                <span class="absolute -left-[1.35rem] top-1.5 h-2.5 w-2.5 rounded-full bg-brand ring-4 ring-surface" aria-hidden="true"></span>
+                <button type="button" @click="flyTo(step)" class="text-left">
+                  <span class="block text-sm font-medium" x-text="step.name"></span>
+                  <span class="block text-xs text-muted"><span x-text="step.what"></span><span x-show="step.year" x-text="` · ${step.year}`"></span></span>
+                </button>
+              </li>
+            </template>
+          </ol>
+          <p x-show="!journey.steps.length" class="mt-3 text-sm text-muted">No places with coordinates are recorded for them yet.</p>
+        </div>
+      </template>
+
+      <div>
+        <p class="label">Showing</p>
+        <ul class="space-y-2 text-sm text-muted">
+          <li class="flex items-center gap-3"><span class="flex w-7 justify-center"><span class="h-4 w-4 rounded-full bg-brand/70 ring-2 ring-brand"></span></span>A place, sized by how many relatives it connects to</li>
+          <li class="flex items-center gap-3"><span class="w-7 border-t-2 border-dashed border-accent"></span>One person's journey, in order</li>
+        </ul>
+      </div>
+
+      <p class="rounded-2xl bg-brand-soft/60 p-4 text-xs leading-relaxed text-muted">
+        <span class="font-semibold text-ink">Tip:</span> click a place to see who is connected to it. Search for a relative to trace where their life took them. Homes of living relatives stay private until you sign in.
+      </p>
+    </div>
+  </aside>
+
+  <div class="relative min-w-0 flex-1">
+    <div id="family-map" class="absolute inset-0" role="application" aria-label="Map of places connected to the family"></div>
+
+    <div class="absolute left-4 top-4 z-[1000] lg:hidden">
+      <button type="button" class="btn btn-secondary btn-sm shadow-soft" @click="panelOpen = true">☰ Places</button>
+    </div>
+
+    <div x-show="loading" x-transition.opacity class="absolute inset-0 z-[1000] flex items-center justify-center bg-bg/60">
+      <div class="card flex items-center gap-3 px-5 py-3 text-sm text-muted">
+        <span class="h-4 w-4 animate-spin rounded-full border-2 border-brand border-t-transparent"></span> Drawing the map…
+      </div>
+    </div>
+
+    <div x-cloak x-show="error" class="absolute inset-0 z-[1000] flex items-center justify-center p-6">
+      <div class="card max-w-sm p-6 text-center">
+        <p class="font-semibold">The map could not be loaded</p>
+        <p class="mt-2 text-sm text-muted" x-text="error"></p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script>
+  function familyMap(config) {
+    let map = null;
+    let markers = null;
+    let path = null;
+
+    const token = (name) => `rgb(${getComputedStyle(document.documentElement).getPropertyValue(`--${name}`).trim().split(/\s+/).join(",")})`;
+
+    return {
+      loading: true,
+      error: "",
+      panelOpen: window.matchMedia("(min-width: 1024px)").matches,
+      query: "",
+      results: [],
+      journey: null,
+
+      async init() {
+        map = L.map("family-map", { zoomControl: true, worldCopyJump: true }).setView([0.5, 37], 6);
+        // OpenStreetMap's own servers block embedded apps and Carto's free tiles are watermarked,
+        // so use Esri's plain canvas basemap in the shade that matches the reader's theme.
+        const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        const canvas = dark ? "World_Dark_Gray_Base" : "World_Light_Gray_Base";
+        L.tileLayer(`https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/${canvas}/MapServer/tile/{z}/{y}/{x}`, {
+          maxZoom: 16,
+          attribution: 'Tiles &copy; <a href="https://www.esri.com/">Esri</a> &mdash; sources: Esri, HERE, Garmin, &copy; OpenStreetMap contributors',
+        }).addTo(map);
+        markers = L.layerGroup().addTo(map);
+        try {
+          const response = await fetch(config.placesEndpoint, { headers: { Accept: "application/json" } });
+          if (!response.ok) throw new Error(`Places request failed with status ${response.status}`);
+          this.draw((await response.json()).places);
+        } catch (err) {
+          console.error(err);
+          this.error = "We couldn't load the family's places. Please check your connection and try again.";
+        } finally {
+          this.loading = false;
+        }
+      },
+
+      draw(places) {
+        const brand = token("brand");
+        const biggest = Math.max(1, ...places.map((place) => place.count));
+        const bounds = [];
+        places.forEach((place) => {
+          const radius = 7 + 16 * Math.sqrt(place.count / biggest);
+          const marker = L.circleMarker([place.lat, place.lon], {
+            radius,
+            color: brand,
+            weight: 2,
+            fillColor: brand,
+            fillOpacity: 0.35,
+          });
+          const parts = [
+            place.born ? `${place.born} born` : "",
+            place.lived ? `${place.lived} lived` : "",
+            place.studied ? `${place.studied} studied` : "",
+            place.worked ? `${place.worked} worked` : "",
+            place.died ? `${place.died} died` : "",
+          ].filter(Boolean);
+          marker.bindPopup(
+            `<strong>${place.label}</strong><br>` +
+              `<span style="color:${token("muted")}">${place.count} ${place.count === 1 ? "relative" : "relatives"} connected` +
+              (parts.length ? ` · ${parts.join(", ")}` : "") +
+              `</span><br><a href="${place.url}" style="color:${brand};font-weight:600">Open ${place.name} →</a>`
+          );
+          marker.addTo(markers);
+          bounds.push([place.lat, place.lon]);
+        });
+        if (bounds.length) map.fitBounds(bounds, { padding: [40, 40] });
+      },
+
+      async search() {
+        const query = this.query.trim();
+        if (query.length < 2) {
+          this.results = [];
+          return;
+        }
+        const response = await fetch(`${config.searchEndpoint}?q=${encodeURIComponent(query)}`, { headers: { Accept: "application/json" } });
+        this.results = response.ok ? (await response.json()).results : [];
+      },
+
+      async choose(person) {
+        if (!person) return;
+        this.results = [];
+        this.query = person.label;
+        const response = await fetch(`${config.journeyEndpoint}?person=${person.pk}`, { headers: { Accept: "application/json" } });
+        if (!response.ok) return;
+        this.journey = await response.json();
+        this.drawJourney();
+      },
+
+      drawJourney() {
+        if (path) map.removeLayer(path);
+        path = null;
+        const steps = this.journey ? this.journey.steps : [];
+        if (steps.length < 1) return;
+        const points = steps.map((step) => [step.lat, step.lon]);
+        path = L.layerGroup().addTo(map);
+        if (points.length > 1) {
+          L.polyline(points, { color: token("accent"), weight: 3, dashArray: "8 8", opacity: 0.9 }).addTo(path);
+        }
+        steps.forEach((step, index) => {
+          L.marker([step.lat, step.lon], {
+            icon: L.divIcon({
+              className: "",
+              html: `<span style="display:flex;height:26px;width:26px;align-items:center;justify-content:center;border-radius:999px;background:${token("accent")};color:${token("on-brand")};font:600 12px Inter,sans-serif;box-shadow:0 2px 6px rgb(0 0 0/.35)">${index + 1}</span>`,
+              iconSize: [26, 26],
+              iconAnchor: [13, 13],
+            }),
+          })
+            .bindTooltip(`${step.what}${step.year ? ` · ${step.year}` : ""} · ${step.name}`)
+            .addTo(path);
+        });
+        map.fitBounds(points, { padding: [60, 60], maxZoom: 9 });
+      },
+
+      flyTo(step) {
+        map.flyTo([step.lat, step.lon], 9, { duration: 0.8 });
+      },
+
+      clearJourney() {
+        this.journey = null;
+        this.query = "";
+        if (path) map.removeLayer(path);
+        path = null;
+      },
+    };
+  }
+</script>
+{% endblock %}

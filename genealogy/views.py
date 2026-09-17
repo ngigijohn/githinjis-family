@@ -617,6 +617,21 @@ def place_detail(request, pk):
     return render(request, "genealogy/place_detail.html", context)
 
 
+def place_map(request):
+    """The family on a map: where people were born, lived, studied, worked and are buried."""
+    mapped = Place.objects.exclude(latitude=None).exclude(longitude=None).count()
+    context = {
+        "mapped_count": mapped,
+        "unmapped_count": Place.objects.filter(latitude=None).count(),
+        "config": {
+            "placesEndpoint": reverse("genealogy:api_places"),
+            "journeyEndpoint": reverse("genealogy:api_journey"),
+            "searchEndpoint": reverse("genealogy:api_people_search"),
+        },
+    }
+    return render(request, "genealogy/place_map.html", context)
+
+
 def tag_list(request):
     tags = Tag.objects.annotate(people_count=Count("people")).filter(people_count__gt=0).order_by("name")
     by_category = defaultdict(list)
