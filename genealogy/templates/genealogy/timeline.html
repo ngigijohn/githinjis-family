@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% load family %}
+
+{% block title %}Family timeline · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+<section class="paper border-b border-line">
+  <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+    <p class="eyebrow">Timeline</p>
+    <h1 class="mt-3 font-display text-4xl sm:text-5xl">The family, year by year</h1>
+    <p class="mt-3 max-w-2xl text-muted">
+      Births, marriages, moves, schooling, work and deaths across every generation.
+      {% if span %}{{ total }} event{{ total|pluralize }} from {{ span.0 }} to {{ span.1 }}.{% else %}Nothing with a date recorded yet.{% endif %}
+      {% if not user.is_authenticated %}<span class="block">Birth dates of living relatives stay private until you sign in.</span>{% endif %}
+    </p>
+
+    <form method="get" class="card mt-8 grid gap-3 p-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div>
+        <label class="sr-only" for="kind">Event type</label>
+        <select id="kind" name="kind" class="input" onchange="this.form.submit()">
+          <option value="">All events</option>
+          {% for value, label in kinds %}<option value="{{ value }}" {% if filters.kind == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="sr-only" for="generation">Generation</label>
+        <select id="generation" name="generation" class="input" onchange="this.form.submit()">
+          <option value="">All generations</option>
+          {% for value in generations %}<option value="{{ value }}" {% if filters.generation == value|stringformat:"s" %}selected{% endif %}>Generation {{ value }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="sr-only" for="place">Place</label>
+        <select id="place" name="place" class="input" onchange="this.form.submit()">
+          <option value="">Anywhere</option>
+          {% for place in places %}<option value="{{ place.pk }}" {% if selected_place.pk == place.pk %}selected{% endif %}>{{ place }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="flex gap-2">
+        {% if selected_person %}<input type="hidden" name="person" value="{{ selected_person.pk }}">{% endif %}
+        <a href="{% url 'genealogy:timeline' %}" class="btn btn-secondary flex-1">Clear</a>
+      </div>
+    </form>
+
+    {% if selected_person %}
+      <p class="mt-4 text-sm text-muted">Showing only <a href="{{ selected_person.get_absolute_url }}" class="font-medium text-brand hover:underline">{{ selected_person.display_name }}</a>.</p>
+    {% endif %}
+  </div>
+</section>
+
+<section class="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
+  {% for group in decades %}
+  <div class="relative pb-10">
+    <div class="sticky top-20 z-10 -mx-2 mb-6 inline-block rounded-full bg-bg/90 px-4 py-1.5 backdrop-blur">
+      <h2 class="font-display text-2xl tabular-nums text-brand">{{ group.decade }}s</h2>
+    </div>
+    <ol class="timeline space-y-5">
+      {% for entry in group.entries %}
+      <li class="relative pl-10">
+        <span class="absolute left-0 top-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-surface bg-brand-soft ring-2 ring-brand/30" aria-hidden="true">
+          <span class="h-2 w-2 rounded-full bg-brand"></span>
+        </span>
+        <div class="flex flex-wrap items-baseline justify-between gap-x-4">
+          <p class="text-sm">
+            <a href="{{ entry.person.get_absolute_url }}" class="font-semibold hover:text-brand">{{ entry.person.display_name }}</a>
+            <span class="text-muted">{{ entry.label }}</span>
+            {% if entry.place %}<span class="text-muted">in <a href="{{ entry.place.get_absolute_url }}" class="hover:text-brand">{{ entry.place }}</a></span>{% endif %}
+          </p>
+          <p class="text-sm tabular-nums text-muted">{{ entry.date|date:"j M Y" }}</p>
+        </div>
+        <p class="text-xs text-muted">
+          {% if entry.generation %}Generation {{ entry.generation }}{% endif %}
+          {% if entry.detail %} · {{ entry.detail }}{% endif %}
+        </p>
+      </li>
+      {% endfor %}
+    </ol>
+  </div>
+  {% empty %}
+  <div class="card mx-auto max-w-lg p-10 text-center">
+    <p class="font-display text-2xl">Nothing matches those filters</p>
+    <p class="mt-2 text-sm text-muted">Try clearing them, or add dates to people's profiles so their lives appear here.</p>
+    <a href="{% url 'genealogy:timeline' %}" class="btn btn-secondary mt-6">Clear filters</a>
+  </div>
+  {% endfor %}
+</section>
+{% endblock %}

@@ -3,10 +3,10 @@ from django.conf import settings
 NAV_ITEMS = [
     {"section": "tree", "label": "Family tree", "url_name": "genealogy:tree"},
     {"section": "people", "label": "People", "url_name": "genealogy:person_list"},
+    {"section": "timeline", "label": "Timeline", "url_name": "genealogy:timeline"},
     {"section": "places", "label": "Places", "url_name": "genealogy:place_list"},
     {"section": "gallery", "label": "Memories", "url_name": "gallery:photo_list"},
     {"section": "relationship", "label": "How are we related?", "url_name": "genealogy:relationship"},
-    {"section": "about", "label": "About", "url_name": "genealogy:about"},
 ]
 DASHBOARD_ITEM = {"section": "dashboard", "label": "Dashboard", "url_name": "genealogy:dashboard"}
 
@@ -14,6 +14,7 @@ SECTIONS = {
     "home": "home",
     "dashboard": "dashboard",
     "tree": "tree",
+    "timeline": "timeline",
     "person_list": "people",
     "person_detail": "people",
     "person_add": "people",
@@ -23,6 +24,7 @@ SECTIONS = {
     "tag_detail": "people",
     "bookmarks": "people",
     "place_list": "places",
+    "place_map": "places",
     "place_detail": "places",
     "relationship": "relationship",
     "photo_list": "gallery",

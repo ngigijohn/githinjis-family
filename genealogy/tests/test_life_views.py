@@ -133,6 +133,27 @@ class LifeHistoryViewTests(TestCase):
         self.assertEqual(recording.place, self.othaya)
         self.assertEqual(list(recording.speakers.all()), [self.f.gm])
 
+    def test_timeline_groups_events_and_filters(self):
+        f = self.f
+        url = reverse("genealogy:timeline")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        decades = response.context["decades"]
+        years = [entry["date"].year for group in decades for entry in group["entries"]]
+        self.assertEqual(years, sorted(years))
+        self.assertEqual([group["decade"] for group in decades], sorted({year // 10 * 10 for year in years}))
+
+        # Living relatives' birth dates stay private until you sign in.
+        self.assertNotIn(f.me.pk, [entry["person"].pk for group in decades for entry in group["entries"]])
+        self.client.force_login(self.editor)
+        signed_in = self.client.get(url).context["decades"]
+        self.assertIn(f.me.pk, [entry["person"].pk for group in signed_in for entry in group["entries"]])
+
+        only_births = self.client.get(url, {"kind": "birth"}).context["decades"]
+        self.assertTrue(all(entry["kind"] == "birth" for group in only_births for entry in group["entries"]))
+        by_person = self.client.get(url, {"person": f.me.pk}).context["decades"]
+        self.assertTrue(all(entry["person"].pk == f.me.pk for group in by_person for entry in group["entries"]))
+
     def test_map_page_and_places_api(self):
         self.othaya.latitude, self.othaya.longitude = -0.5467, 36.9434
         self.othaya.save()

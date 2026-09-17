@@ -29,6 +29,7 @@ from .services.relations import (
     build_graph,
     describe,
     generation_count,
+    generation_numbers,
     relationship_between,
     suggested_root,
 )
@@ -615,6 +616,83 @@ def place_detail(request, pk):
         "map_url": map_url,
     }
     return render(request, "genealogy/place_detail.html", context)
+
+
+def timeline(request):
+    """Every recorded event across the generations, on one scrollable timeline."""
+    params = request.GET
+    signed_in = request.user.is_authenticated
+    generations = generation_numbers()
+    kind = params.get("kind", "")
+    person_id = _int_or_none(params.get("person"))
+    place = Place.objects.select_related("parent").filter(pk=_int_or_none(params.get("place"))).first()
+    place_ids = place.descendant_ids() if place else None
+    generation = _int_or_none(params.get("generation"))
+
+    entries = []
+
+    def add(date_value, kind_key, label, person, place_value, detail=""):
+        if not date_value:
+            return
+        if person_id and person.pk != person_id:
+            return
+        if generation and generations.get(person.pk) != generation:
+            return
+        if place_ids is not None and (place_value is None or place_value.pk not in place_ids):
+            return
+        if kind and kind != kind_key:
+            return
+        entries.append(
+            {
+                "date": date_value,
+                "kind": kind_key,
+                "label": label,
+                "person": person,
+                "place": place_value,
+                "detail": detail,
+                "generation": generations.get(person.pk),
+            }
+        )
+
+    people = Person.objects.select_related("birth_place__parent", "death_place__parent")
+    for person in people:
+        # Birth years of living relatives stay private, so their births only appear to family.
+        if person.birth_date and (signed_in or not person.is_living):
+            add(person.birth_date, "birth", "was born", person, person.birth_place)
+        if person.death_date:
+            add(person.death_date, "death", "died", person, person.death_place)
+
+    for union in Union.objects.filter(start_date__isnull=False).select_related("partner_a", "partner_b"):
+        other = union.partner_b
+        if other:
+            add(union.start_date, "marriage", f"married {other.first_name}", union.partner_a, None, union.get_union_type_display())
+
+    for event in LifeEvent.objects.exclude(date=None).select_related("person", "place__parent"):
+        add(event.date, event.event_type, event.heading.lower(), event.person, event.place)
+
+    entries.sort(key=lambda entry: entry["date"])
+    decades = []
+    for entry in entries:
+        decade = entry["date"].year // 10 * 10
+        if not decades or decades[-1]["decade"] != decade:
+            decades.append({"decade": decade, "entries": []})
+        decades[-1]["entries"].append(entry)
+
+    kinds = [("birth", "Births"), ("marriage", "Marriages"), ("death", "Deaths")] + [
+        (value, label) for value, label in LifeEvent.Type.choices if value not in {"birth", "marriage", "death"}
+    ]
+    context = {
+        "decades": decades,
+        "total": len(entries),
+        "kinds": kinds,
+        "generations": sorted({g for g in generations.values()}),
+        "places": Place.objects.filter(pk__in=place_connections().keys()).select_related("parent").order_by("name"),
+        "selected_place": place,
+        "selected_person": Person.objects.filter(pk=person_id).first() if person_id else None,
+        "filters": params,
+        "span": (entries[0]["date"].year, entries[-1]["date"].year) if entries else None,
+    }
+    return render(request, "genealogy/timeline.html", context)
 
 
 def place_map(request):
