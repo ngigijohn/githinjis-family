@@ -6,6 +6,7 @@ app_name = "genealogy"
 
 urlpatterns = [
     path("", views.home, name="home"),
+    path("dashboard/", views.dashboard, name="dashboard"),
     path("tree/", views.tree, name="tree"),
     path("people/", views.PersonListView.as_view(), name="person_list"),
     path("people/add/", views.PersonCreateView.as_view(), name="person_add"),

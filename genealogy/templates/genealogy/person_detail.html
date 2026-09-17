@@ -116,10 +116,10 @@
           <dd class="mt-1"><a href="{{ person.homeland.get_absolute_url }}" class="hover:text-brand">{{ person.homeland }}</a></dd>
         </div>
         {% endif %}
-        {% if current_home %}
+        {% if current_home and show_private %}
         <div>
           <dt class="text-xs font-semibold uppercase tracking-wider text-muted">Lives in</dt>
-          <dd class="mt-1">{% if show_private %}<a href="{{ current_home.place.get_absolute_url }}" class="hover:text-brand">{{ current_home.place }}</a>{% else %}<span class="text-muted">Private. Sign in to see.</span>{% endif %}</dd>
+          <dd class="mt-1"><a href="{{ current_home.place.get_absolute_url }}" class="hover:text-brand">{{ current_home.place }}</a></dd>
         </div>
         {% endif %}
         {% if namesakes %}

@@ -1102,7 +1102,11 @@
         });
         window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => graph.refreshTheme());
         this.reload().then(() => {
-          if (this.rootId && !this.showAll) graph.focus(this.rootId);
+          if (this.rootId && !this.showAll) {
+            graph.focus(this.rootId);
+            // Open with the whole tree visible rather than dimming everyone outside their line.
+            graph.clearHighlight();
+          }
         });
       },
 

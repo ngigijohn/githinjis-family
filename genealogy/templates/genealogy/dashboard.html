@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% load family humanize %}
+
+{% block title %}Dashboard · {{ SITE_NAME }}{% endblock %}
+
+{% block content %}
+<section class="paper border-b border-line">
+  <div class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+    <div class="flex flex-wrap items-end justify-between gap-6">
+      <div>
+        <p class="eyebrow">Welcome back, {{ user.first_name|default:user.get_username }}</p>
+        <h1 class="mt-3 font-display text-4xl sm:text-5xl">The family so far</h1>
+        <p class="mt-3 text-muted">Everything recorded by the family, and what still needs filling in.</p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        {% if perms.genealogy.add_person %}<a href="{% url 'genealogy:person_add' %}" class="btn btn-primary">+ Add family member</a>{% endif %}
+        <a href="{% url 'genealogy:tree' %}" class="btn btn-secondary">Explore the tree</a>
+        {% if perms.gallery.add_recording %}<a href="{% url 'gallery:recording_add' %}" class="btn btn-secondary">Add a recording</a>{% endif %}
+        {% if perms.gallery.add_photo %}<a href="{% url 'gallery:photo_add' %}" class="btn btn-secondary">Upload photos</a>{% endif %}
+      </div>
+    </div>
+
+    <dl class="mt-9 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      {% for label, value in counts.items %}
+      <div class="card p-4">
+        <dt class="text-xs uppercase tracking-wider text-muted">{{ label|title }}</dt>
+        <dd class="mt-1 font-display text-3xl tabular-nums">{{ value|intcomma }}</dd>
+      </div>
+      {% endfor %}
+    </dl>
+  </div>
+</section>
+
+<div class="mx-auto grid max-w-7xl gap-6 px-4 py-10 sm:px-6 lg:grid-cols-3 lg:px-8">
+  <!-- On this day -->
+  <section class="card p-6 lg:col-span-2">
+    <h2 class="font-display text-2xl">On this day</h2>
+    {% if on_this_day or weddings %}
+      <ul class="mt-4 divide-y divide-line">
+        {% for entry in on_this_day %}
+        <li class="flex items-center gap-3 py-3">
+          {% avatar entry.person "sm" %}
+          <p class="min-w-0 flex-1 text-sm">
+            <a href="{{ entry.person.get_absolute_url }}" class="font-medium hover:text-brand">{{ entry.person.display_name }}</a>
+            <span class="text-muted">{{ entry.what }} on this day{% if entry.years %}, {{ entry.years }} year{{ entry.years|pluralize }} ago{% endif %}.</span>
+          </p>
+        </li>
+        {% endfor %}
+        {% for entry in weddings %}
+        <li class="flex items-center gap-3 py-3">
+          <span class="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-accent-soft text-accent" aria-hidden="true">◎</span>
+          <p class="min-w-0 flex-1 text-sm">
+            <a href="{{ entry.union.partner_a.get_absolute_url }}" class="font-medium hover:text-brand">{{ entry.union.partner_a.first_name }}</a>
+            <span class="text-muted">and</span>
+            {% if entry.union.partner_b %}<a href="{{ entry.union.partner_b.get_absolute_url }}" class="font-medium hover:text-brand">{{ entry.union.partner_b.first_name }}</a>{% endif %}
+            <span class="text-muted">married on this day{% if entry.years %}, {{ entry.years }} year{{ entry.years|pluralize }} ago{% endif %}.</span>
+          </p>
+        </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="mt-3 text-muted">Nothing recorded for today's date. As more birthdays and wedding dates are added, this fills up.</p>
+    {% endif %}
+  </section>
+
+  <!-- Coming up -->
+  <section class="card p-6">
+    <h2 class="font-display text-2xl">Coming up</h2>
+    {% if upcoming %}
+      <ul class="mt-4 divide-y divide-line">
+        {% for entry in upcoming %}
+        <li class="flex items-center gap-3 py-2.5">
+          {% avatar entry.person "sm" %}
+          <div class="min-w-0 flex-1">
+            <a href="{{ entry.person.get_absolute_url }}" class="block truncate text-sm font-medium hover:text-brand">{{ entry.person.first_name }}</a>
+            <p class="text-xs text-muted">turns {{ entry.turning }} on {{ entry.when|date:"j M" }}</p>
+          </div>
+          <span class="flex-none text-xs tabular-nums text-muted">{% if entry.days == 1 %}tomorrow{% else %}{{ entry.days }} days{% endif %}</span>
+        </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="mt-3 text-sm text-muted">No birthdays in the next month, or dates are still missing.</p>
+    {% endif %}
+  </section>
+
+  <!-- Gaps -->
+  <section class="card p-6">
+    <h2 class="font-display text-2xl">Help complete the records</h2>
+    <p class="mt-1 text-sm text-muted">Out of {{ total_people }} {{ total_people|pluralize:"person,people" }} recorded.</p>
+    <ul class="mt-4 space-y-2">
+      {% for gap in gaps %}
+      <li class="flex items-center justify-between gap-3 text-sm">
+        <span class="text-muted">{{ gap.label|capfirst }}</span>
+        <span class="chip {% if gap.count %}bg-accent-soft text-accent{% endif %} tabular-nums">{{ gap.count }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    <a href="{% url 'genealogy:person_list' %}" class="btn btn-secondary btn-sm mt-5">Browse the people</a>
+  </section>
+
+  <!-- Recently added -->
+  <section class="card p-6 lg:col-span-2">
+    <div class="flex items-center justify-between gap-4">
+      <h2 class="font-display text-2xl">Recently added</h2>
+      <a href="{% url 'genealogy:person_list' %}?sort=recent" class="text-sm font-medium text-brand hover:underline">See all →</a>
+    </div>
+    <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      {% for person in recent_people %}{% include "includes/person_card.html" %}{% empty %}
+        <p class="text-muted">No one has been added yet.</p>
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- Where the family lives -->
+  <section class="card p-6">
+    <h2 class="font-display text-2xl">Where the family is</h2>
+    {% if busiest_places %}
+      <ol class="mt-4 space-y-3">
+        {% for node in busiest_places %}
+        <li class="flex items-center justify-between gap-3">
+          <a href="{{ node.place.get_absolute_url }}" class="min-w-0 truncate text-sm font-medium hover:text-brand">{{ node.place }}</a>
+          <span class="flex-none text-sm tabular-nums text-muted">{{ node.count }}</span>
+        </li>
+        {% endfor %}
+      </ol>
+      <a href="{% url 'genealogy:place_list' %}" class="btn btn-secondary btn-sm mt-5">All places</a>
+    {% else %}
+      <p class="mt-3 text-sm text-muted">No places recorded yet.</p>
+    {% endif %}
+  </section>
+
+  <!-- Recent memories -->
+  <section class="card p-6 lg:col-span-3">
+    <div class="flex items-center justify-between gap-4">
+      <h2 class="font-display text-2xl">Recent memories</h2>
+      <a href="{% url 'gallery:photo_list' %}" class="text-sm font-medium text-brand hover:underline">Open Memories →</a>
+    </div>
+    <div class="mt-5 grid gap-6 lg:grid-cols-[2fr_1fr]">
+      {% if recent_photos %}
+        <div class="grid grid-cols-3 gap-2 sm:grid-cols-6">
+          {% for photo in recent_photos %}
+            <a href="{% url 'gallery:photo_list' %}" class="overflow-hidden rounded-xl">
+              <img src="{{ photo.image.url }}" alt="{{ photo }}" loading="lazy" class="aspect-square w-full object-cover transition hover:scale-105">
+            </a>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="text-sm text-muted">No photographs yet.</p>
+      {% endif %}
+      <div>
+        {% if recent_recordings %}
+          <ul class="space-y-3">
+            {% for recording in recent_recordings %}
+            <li>
+              <a href="{{ recording.get_absolute_url }}" class="text-sm font-medium hover:text-brand">{{ recording.title }}</a>
+              <p class="text-xs text-muted">{{ recording.language|default:"Language not recorded" }}{% if recording.duration %} · {{ recording.duration }}{% endif %}</p>
+            </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="text-sm text-muted">No recordings yet. An elder's voice is the hardest thing to recover later.</p>
+        {% endif %}
+      </div>
+    </div>
+  </section>
+</div>
+{% endblock %}

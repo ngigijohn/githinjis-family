@@ -87,6 +87,79 @@ def tree(request):
     return render(request, "genealogy/tree.html", {"config": config, "people_count": people_count})
 
 
+@login_required
+def dashboard(request):
+    """An overview for signed-in relatives: today's anniversaries, gaps in the records and recent additions."""
+    from datetime import date
+
+    today = date.today()
+
+    def next_anniversary(day):
+        """The next anniversary of ``day`` and how many days away it is."""
+        for year in (today.year, today.year + 1):
+            try:
+                when = day.replace(year=year)
+            except ValueError:  # 29 February in a year that has none
+                when = day.replace(year=year, day=28)
+            if when >= today:
+                return when, (when - today).days
+        return day, 0
+
+    on_this_day = [
+        {"person": person, "what": "was born", "years": today.year - person.birth_date.year}
+        for person in Person.objects.filter(birth_date__month=today.month, birth_date__day=today.day).exclude(birth_date__year=today.year)
+    ] + [
+        {"person": person, "what": "died", "years": today.year - person.death_date.year}
+        for person in Person.objects.filter(death_date__month=today.month, death_date__day=today.day)
+    ]
+    weddings = [
+        {"union": union, "years": today.year - union.start_date.year}
+        for union in Union.objects.filter(start_date__month=today.month, start_date__day=today.day).select_related("partner_a", "partner_b")
+    ]
+
+    upcoming = []
+    for person in Person.objects.filter(is_living=True).exclude(birth_date=None):
+        when, days = next_anniversary(person.birth_date)
+        if 0 < days <= 30:
+            upcoming.append({"person": person, "when": when, "days": days, "turning": when.year - person.birth_date.year})
+    upcoming.sort(key=lambda row: row["days"])
+
+    _, places_by_pk = place_tree()
+    busiest = sorted(
+        (node for node in places_by_pk.values() if node["place"].kind != Place.Kind.COUNTRY and node["count"]),
+        key=lambda node: (-node["count"], node["place"].name),
+    )[:6]
+
+    people = Person.objects.count()
+    context = {
+        "counts": {
+            "people": people,
+            "generations": generation_count(FamilyIndex.load()),
+            "couples": Union.objects.count(),
+            "places": Place.objects.count(),
+            "photos": Photo.objects.count(),
+            "recordings": Recording.objects.count(),
+            "stories": Person.objects.exclude(biography="").count(),
+        },
+        "on_this_day": on_this_day,
+        "weddings": weddings,
+        "upcoming": upcoming[:6],
+        "gaps": [
+            {"label": "no birth date", "count": Person.objects.filter(birth_date=None).count()},
+            {"label": "no birthplace", "count": Person.objects.filter(birth_place=None).count()},
+            {"label": "no photo", "count": Person.objects.filter(photo="").count()},
+            {"label": "no story written", "count": Person.objects.exclude(biography__gt="").count()},
+            {"label": "flagged for review", "count": Person.objects.filter(needs_review=True).count()},
+        ],
+        "busiest_places": busiest,
+        "recent_people": Person.objects.order_by("-created_at")[:6],
+        "recent_photos": Photo.objects.all()[:6],
+        "recent_recordings": Recording.objects.all()[:3],
+        "total_people": people,
+    }
+    return render(request, "genealogy/dashboard.html", context)
+
+
 def place_connections():
     """``{place_id: {person_id, ...}}``: everyone connected directly to each place."""
     links = defaultdict(set)

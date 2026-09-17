@@ -8,9 +8,11 @@ NAV_ITEMS = [
     {"section": "relationship", "label": "How are we related?", "url_name": "genealogy:relationship"},
     {"section": "about", "label": "About", "url_name": "genealogy:about"},
 ]
+DASHBOARD_ITEM = {"section": "dashboard", "label": "Dashboard", "url_name": "genealogy:dashboard"}
 
 SECTIONS = {
     "home": "home",
+    "dashboard": "dashboard",
     "tree": "tree",
     "person_list": "people",
     "person_detail": "people",
@@ -39,8 +41,11 @@ SECTIONS = {
 
 def site(request):
     match = getattr(request, "resolver_match", None)
+    items = NAV_ITEMS
+    if getattr(request.user, "is_authenticated", False):
+        items = [DASHBOARD_ITEM] + NAV_ITEMS
     return {
         "SITE_NAME": settings.SITE_NAME,
-        "nav_items": NAV_ITEMS,
+        "nav_items": items,
         "nav_section": SECTIONS.get(match.url_name) if match else None,
     }

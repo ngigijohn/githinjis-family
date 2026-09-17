@@ -1,0 +1,1123 @@
+# Build a Modern Family Tree and Ancestry Web Application
+
+You are a senior product designer, UX designer and full-stack engineer.
+
+I want you to BUILD a polished, production-quality family tree / ancestry web application. Do not just give me an explanation, wireframe, or list of ideas. Actually create the application in the provided coding environment.
+
+The goal is to create a genealogy product that feels significantly more modern, visual and enjoyable than a traditional genealogy database.
+
+Think of the useful functionality found in products such as Ancestry and MyHeritage, but create our own original UI, branding and user experience. Do not copy their visual designs.
+
+---
+
+# 1. PRODUCT VISION
+
+The application allows a person or family to build a rich digital history of their family.
+
+The family tree is the central experience, but the product should go beyond boxes connected by lines.
+
+Users should be able to:
+
+* Build and explore their family tree
+* Create detailed profiles for relatives
+* Upload photographs and documents
+* Record family stories and memories
+* See family members on a timeline
+* See where ancestors lived on a map
+* Calculate relationships between people
+* Collaborate with relatives
+* Preserve historical information
+* Discover connections within their family history
+
+The application should feel like:
+
+"Google Maps + a beautiful digital scrapbook + an interactive family tree."
+
+It should feel warm, trustworthy, sophisticated and slightly emotional.
+
+Avoid making it look like an old enterprise database.
+
+---
+
+# 2. DESIGN DIRECTION
+
+Create a beautiful modern interface.
+
+Design principles:
+
+* Clean
+* Elegant
+* Warm
+* Highly visual
+* Easy to understand
+* Family-oriented
+* Trustworthy
+* Responsive
+* Accessible
+* Fast
+
+Use generous spacing and excellent typography.
+
+Use cards, subtle borders, soft shadows and restrained animations.
+
+The family tree should be the visual centerpiece.
+
+Do not overcrowd the interface.
+
+The UI should feel premium without looking unnecessarily complicated.
+
+Support both light and dark mode.
+
+Use a restrained natural/warm color palette.
+
+Possible visual inspiration:
+
+* archival photographs
+* old paper
+* maps
+* family albums
+* genealogy documents
+* modern SaaS dashboards
+
+But keep the implementation contemporary.
+
+---
+
+# 3. APPLICATION STRUCTURE
+
+Create the following main areas:
+
+1. Dashboard
+2. Family Tree
+3. People
+4. Memories
+5. Photos
+6. Documents
+7. Timeline
+8. Places / Map
+9. Relationship Explorer
+10. Family Activity
+11. Settings
+
+Create a clear sidebar/navigation system.
+
+On mobile, convert this into an appropriate mobile navigation pattern.
+
+---
+
+# 4. DASHBOARD
+
+Create a beautiful family dashboard.
+
+Show:
+
+* Family name
+* Profile/family cover image
+* Number of people
+* Number of generations
+* Number of photos
+* Number of stories
+* Number of documents
+* Recent family activity
+* Recently added people
+* Recent memories
+* Important upcoming dates
+* Family timeline preview
+* Geographic distribution of ancestors
+
+Example cards:
+
+"Your Family"
+
+"127 people"
+
+"6 generations"
+
+"42 places"
+
+"318 photos"
+
+"24 stories"
+
+Include a prominent button:
+
+"+ Add family member"
+
+Also include:
+
+"Explore Family Tree"
+
+"Add a Memory"
+
+"Upload Photos"
+
+"Invite Family"
+
+---
+
+# 5. FAMILY TREE
+
+This is the most important screen.
+
+Create an interactive, zoomable family tree.
+
+Requirements:
+
+* Zoom in/out
+* Pan
+* Center on selected person
+* Expand/collapse branches
+* Search people
+* Focus on a person
+* Show ancestors
+* Show descendants
+* Show spouses
+* Show siblings
+* Show children
+* Support multiple spouses/partners
+* Support half-siblings
+* Support adoption
+* Support step-family relationships
+* Display deceased/living status appropriately
+
+Each person should appear as a beautiful card.
+
+Person card can contain:
+
+* Profile photo
+* Full name
+* Birth year
+* Death year if applicable
+* Relationship indicator
+* Small status indicators for photos/stories/documents
+
+Example:
+
+[PHOTO]
+
+John Ngigi
+
+1998 -
+
+Engineer
+
+The tree should not feel like a basic organizational chart.
+
+Make connections visually clear.
+
+Allow users to click a person to open a side panel with their information.
+
+Include controls such as:
+
+[+] [-] [Center] [Search] [Ancestors] [Descendants] [Full Tree]
+
+Add a minimap if useful.
+
+---
+
+# 6. PERSON PROFILE
+
+Create a rich profile page for every person.
+
+Sections:
+
+## Header
+
+* Profile photo
+* Full name
+* Maiden name
+* Nicknames
+* Birth date
+* Death date
+* Current/living status
+* Relationship to current user
+
+## Biography
+
+Allow users to write a biography.
+
+## Life Timeline
+
+Show major events chronologically:
+
+Birth
+↓
+Childhood
+↓
+Education
+↓
+Marriage
+↓
+Children
+↓
+Career
+↓
+Migration
+↓
+Important events
+↓
+Death
+
+Events should support:
+
+* Date
+* Location
+* Description
+* Photos
+* Documents
+* Sources
+
+## Family
+
+Show:
+
+* Parents
+* Siblings
+* Partners
+* Children
+
+## Places
+
+Show locations associated with the person.
+
+## Photos
+
+Gallery of photographs.
+
+## Documents
+
+Birth certificates, marriage certificates, letters, records, etc.
+
+## Stories
+
+Personal memories and stories.
+
+## Sources
+
+Allow information to have sources/citations.
+
+Include:
+
+"Edit person"
+
+"Add event"
+
+"Add photo"
+
+"Add story"
+
+"Add document"
+
+---
+
+# 7. ADD PERSON
+
+Create a very easy onboarding flow for adding a person.
+
+Fields:
+
+* First name
+* Middle name
+* Last name
+* Maiden name
+* Nickname
+* Gender
+* Birth date
+* Birth place
+* Death date
+* Death place
+* Occupation
+* Biography
+* Profile photo
+
+Relationship options:
+
+* Parent
+* Child
+* Spouse/partner
+* Sibling
+* Adoptive parent
+* Adopted child
+* Step-parent
+* Step-child
+
+Allow adding a person directly from the family tree.
+
+Make the process extremely simple.
+
+---
+
+# 8. RELATIONSHIP EXPLORER
+
+Create a dedicated feature called:
+
+"How are we related?"
+
+Users select two people.
+
+Example:
+
+You → Father → Grandfather → Brother → Daughter
+
+Then show:
+
+"Sarah is your first cousin once removed."
+
+Create a visual relationship path between the two people.
+
+Make this feature fun and highly visual.
+
+---
+
+# 9. FAMILY TIMELINE
+
+Create a timeline showing major events across generations.
+
+Example:
+
+1902
+Great-grandfather born
+
+1925
+Family moved to Nairobi
+
+1931
+Marriage
+
+1934
+First child
+
+1967
+Family business founded
+
+1998
+John born
+
+Allow filtering by:
+
+* Person
+* Generation
+* Event type
+* Location
+
+---
+
+# 10. MAP / FAMILY GEOGRAPHY
+
+Create an interactive map showing locations associated with family members.
+
+Examples:
+
+* Birthplaces
+* Marriage locations
+* Places lived
+* Migration routes
+* Death locations
+* Important family locations
+
+Allow users to select a person and see their geographic journey.
+
+Example:
+
+Kisumu → Nairobi → London
+
+Draw migration paths where appropriate.
+
+The map should make family history feel tangible.
+
+---
+
+# 11. MEMORIES / STORIES
+
+Create a beautiful family memories section.
+
+Users can create stories containing:
+
+* Title
+* Author
+* Date
+* Story text
+* People mentioned
+* Location
+* Photos
+* Documents
+
+Example:
+
+"Grandpa's first journey to Nairobi"
+
+Display stories like a digital family magazine.
+
+Allow relatives to comment.
+
+---
+
+# 12. PHOTO ALBUMS
+
+Create:
+
+* Family photo gallery
+* Albums
+* Individual photo pages
+* Photo tagging
+* People tags
+* Dates
+* Locations
+* Captions
+* Comments
+
+Users should be able to click a person's face/tag and navigate to their profile.
+
+Create an attractive masonry/grid gallery.
+
+---
+
+# 13. DOCUMENT ARCHIVE
+
+Allow users to upload:
+
+* Birth certificates
+* Death certificates
+* Marriage certificates
+* School records
+* Immigration records
+* Letters
+* Newspaper clippings
+* Land documents
+* Family documents
+
+Each document should support:
+
+* Title
+* Type
+* Date
+* People
+* Location
+* Description
+* Source
+* File
+
+Create a secure-looking document archive.
+
+---
+
+# 14. COLLABORATION
+
+Families should be able to collaborate.
+
+Create family invitations.
+
+Roles:
+
+* Owner
+* Admin
+* Contributor
+* Viewer
+
+Allow permissions to control:
+
+* View
+* Add
+* Edit
+* Delete
+* Invite
+
+Create an activity feed:
+
+"Jane added a photo of Grandma"
+
+"Peter added a new family member"
+
+"Mary edited John's birth location"
+
+"David added a story"
+
+---
+
+# 15. SOURCES AND DATA TRUST
+
+Genealogy information can easily become inaccurate.
+
+Build the UI with data provenance in mind.
+
+Information should be able to have:
+
+* Source
+* Contributor
+* Date added
+* Last modified
+* Confidence / verification status
+
+Possible status:
+
+Verified
+Unverified
+Needs review
+
+Create a "Suggested Changes" workflow where relatives can review proposed edits.
+
+---
+
+# 16. PRIVACY
+
+Privacy is extremely important.
+
+Treat living people differently from deceased people.
+
+Build privacy controls such as:
+
+* Private
+* Family only
+* Family members + invited collaborators
+* Public
+
+Living people's sensitive information should never automatically be public.
+
+Do not expose private data in public-facing views.
+
+---
+
+# 17. SEARCH
+
+Create powerful global search.
+
+Search for:
+
+* People
+* Places
+* Stories
+* Photos
+* Documents
+* Events
+
+Example:
+
+Search:
+
+"Kamau"
+
+Results:
+
+People
+Photos
+Stories
+Documents
+Places
+
+Include filters.
+
+---
+
+# 18. NOTIFICATIONS / ACTIVITY
+
+Create notifications for:
+
+* New relatives added
+* Suggested changes
+* Comments
+* Mentions
+* New photos
+* New stories
+* Invitations
+* Important family dates
+
+---
+
+# 19. FAMILY STATISTICS
+
+Create a fun statistics page.
+
+Examples:
+
+* Number of generations
+* Largest generation
+* Oldest ancestor
+* Most common names
+* Most common occupations
+* Countries/cities represented
+* Number of family branches
+* Average lifespan
+* Number of marriages
+* Number of descendants
+
+Present these visually.
+
+Do not present sensitive statistics in ways that could be misleading.
+
+---
+
+# 20. IMPORTANT DATES
+
+Create an "On This Day" section.
+
+Examples:
+
+"Today in 1952, your grandmother was born."
+
+"Today in 1978, your grandparents were married."
+
+"25 years ago today, your family moved to Nairobi."
+
+Make these feel like meaningful memories rather than generic notifications.
+
+---
+
+# 21. IMPORT / EXPORT
+
+Design support for:
+
+* GEDCOM import
+* GEDCOM export
+* CSV import
+* CSV export
+* JSON export
+
+For the first implementation, prioritize the UI and architecture so these can be implemented cleanly.
+
+---
+
+# 22. DATA MODEL
+
+Design a proper relational data model.
+
+At minimum include:
+
+User
+Family
+FamilyMember
+Person
+Relationship
+Event
+Place
+Photo
+PhotoTag
+Story
+Document
+Source
+Comment
+Invitation
+Activity
+Notification
+
+Relationships should not assume that a person has only one spouse or only biological parents.
+
+The model should support complex real-world families.
+
+---
+
+# 23. TECHNICAL IMPLEMENTATION
+
+Use a modern full-stack architecture.
+
+Preferred stack unless the existing environment dictates otherwise:
+
+Frontend:
+
+* React
+* TypeScript
+* Tailwind CSS
+
+Backend:
+
+* Node.js
+* Appropriate API architecture
+
+Database:
+
+* PostgreSQL
+
+ORM:
+
+* Prisma
+
+For the family tree visualization, use an appropriate graph/tree visualization library or implement a robust SVG/canvas solution.
+
+Use reusable components.
+
+Keep the architecture clean and modular.
+
+---
+
+# 24. RESPONSIVENESS
+
+The application must work well on:
+
+* Desktop
+* Laptop
+* Tablet
+* Mobile
+
+The family tree requires special attention on mobile.
+
+Do not simply shrink the desktop tree.
+
+Create a mobile-friendly tree exploration experience.
+
+---
+
+# 25. ACCESSIBILITY
+
+Follow accessibility best practices.
+
+Include:
+
+* Keyboard navigation
+* Appropriate contrast
+* Semantic HTML
+* ARIA labels where necessary
+* Visible focus states
+* Accessible forms
+* Screen-reader-friendly controls
+
+---
+
+# 26. PERFORMANCE
+
+The family tree could eventually contain thousands of people.
+
+Design the architecture so that large trees do not render every node unnecessarily.
+
+Use:
+
+* Lazy loading
+* Virtualization where appropriate
+* Efficient graph rendering
+* Pagination
+* Image optimization
+* Caching where appropriate
+
+---
+
+# 27. SAMPLE DATA
+
+Do not leave the application looking empty.
+
+Create realistic demo data representing approximately 4-6 generations.
+
+Include:
+
+* 30-50 people
+* Multiple family branches
+* Multiple spouses
+* Siblings
+* Half-siblings
+* Several locations
+* Photos using appropriate placeholders
+* Stories
+* Events
+* Documents
+* Relationships
+
+Use fictional people.
+
+The demo data should make the application immediately impressive when opened.
+
+---
+
+# 28. LANDING PAGE
+
+Create a beautiful public landing page.
+
+Hero:
+
+"Your family's story, connected."
+
+Subtitle:
+
+"Build your family tree, preserve your memories, and discover the people and places that shaped your family."
+
+Primary CTA:
+
+"Start Your Family Tree"
+
+Secondary CTA:
+
+"Explore Demo"
+
+Include sections for:
+
+* Interactive family tree
+* Family stories
+* Photos
+* Timeline
+* Family map
+* Collaboration
+* Privacy
+
+End with a strong CTA.
+
+---
+
+# 29. UX DETAILS
+
+Add thoughtful micro-interactions.
+
+Examples:
+
+* Smooth tree expansion
+* Hover states
+* Profile transitions
+* Animated relationship paths
+* Image lightboxes
+* Toast notifications
+* Loading skeletons
+* Empty states
+* Confirmation dialogs
+
+Do not over-animate.
+
+The product should feel polished, not gimmicky.
+
+---
+
+# 30. EMPTY STATES
+
+Design useful empty states.
+
+Example:
+
+"No family members yet."
+
+"Start with yourself, then add your parents."
+
+Button:
+
+"Add yourself"
+
+For photos:
+
+"Your family's memories belong here."
+
+Button:
+
+"Upload first photo"
+
+---
+
+# 31. DEMO EXPERIENCE
+
+When the application starts, make the demo immediately understandable.
+
+The user should see a populated family tree.
+
+Provide a clear onboarding tooltip:
+
+"Start here. This is your family tree."
+
+Then guide users through:
+
+1. Select a person
+2. Explore their family
+3. Open their profile
+4. View their timeline
+5. Explore family locations
+6. Add a memory
+
+---
+
+# 32. DESIGN SYSTEM
+
+Create reusable design tokens/components for:
+
+* Buttons
+* Inputs
+* Cards
+* Person cards
+* Avatars
+* Modals
+* Side panels
+* Tabs
+* Dropdowns
+* Tooltips
+* Badges
+* Timeline events
+* Photo cards
+* Document cards
+* Relationship connectors
+
+Keep the design system consistent.
+
+---
+
+# 33. IMPORTANT PRODUCT PRINCIPLE
+
+Do not make the application merely a database of names.
+
+The emotional value is:
+
+"These were real people. This is where they lived. These are the things they experienced. These are the stories our family remembers."
+
+The product should help users feel that history.
+
+---
+
+# 34. BUILD IN PHASES
+
+Do not attempt to create every advanced feature at the expense of a working application.
+
+Build in this order:
+
+PHASE 1
+
+* Landing page
+* Authentication UI
+* Dashboard
+* Family tree
+* Person profiles
+* Add/edit people
+* Relationships
+* Demo data
+
+PHASE 2
+
+* Timeline
+* Photos
+* Stories
+* Documents
+* Search
+* Places/map
+
+PHASE 3
+
+* Collaboration
+* Permissions
+* Activity
+* Notifications
+* Suggested edits
+* Sources
+
+PHASE 4
+
+* GEDCOM
+* Advanced analytics
+* Advanced relationship explorer
+* Performance optimization
+* AI-assisted genealogy features
+
+---
+
+# 35. AI FEATURES FOR THE FUTURE
+
+Architect the product so we can later add AI features such as:
+
+* Convert old handwritten documents into structured information
+* OCR historical documents
+* Extract names/dates/places from documents
+* Suggest possible duplicate people
+* Generate a biography from verified family records
+* Summarize family stories
+* Identify conflicting information
+* Suggest questions to ask older relatives
+* Help organize photographs
+* Generate family-history reports
+* Research assistance
+
+Do NOT fabricate historical facts.
+
+Any AI-generated information must clearly be identified as AI-generated and should require user confirmation before becoming part of the family tree.
+
+---
+
+# 36. ENGINEERING STANDARD
+
+Do not create a fake prototype that only looks good.
+
+Build real functionality wherever possible.
+
+Use:
+
+* Real state management
+* Real forms
+* Proper validation
+* Proper component structure
+* Real CRUD operations
+* Clean database schema
+* Error handling
+* Loading states
+* Empty states
+
+If a backend/database cannot be fully configured in the current environment, create a clean abstraction layer and a realistic local/mock implementation that can later be replaced without rewriting the UI.
+
+---
+
+# 37. BEFORE CODING
+
+First inspect the existing repository/environment.
+
+Determine:
+
+* Existing framework
+* Existing dependencies
+* Existing database setup
+* Existing components
+* Existing design system
+* Existing routes
+* Existing configuration
+
+Do not unnecessarily replace working infrastructure.
+
+Reuse existing code where appropriate.
+
+---
+
+# 38. THEN BUILD
+
+After inspecting the project:
+
+1. Create the application architecture.
+2. Create the design system.
+3. Build the landing page.
+4. Build the dashboard.
+5. Build the interactive family tree.
+6. Build person profiles.
+7. Build the add/edit person workflow.
+8. Add realistic demo data.
+9. Implement responsive behavior.
+10. Test all major interactions.
+11. Fix errors.
+12. Polish the UI.
+
+Do not stop after creating a plan.
+
+Actually implement the application.
+
+---
+
+# 39. QUALITY BAR
+
+Before declaring the task complete, test the major user journeys.
+
+Test:
+
+* Creating a family
+* Adding a person
+* Adding parents
+* Adding children
+* Adding a spouse
+* Navigating the family tree
+* Opening a profile
+* Editing a person
+* Searching
+* Viewing timeline
+* Viewing photos
+* Switching between tree views
+* Mobile layout
+* Dark mode
+* Empty states
+* Error states
+
+Fix obvious bugs and visual inconsistencies.
+
+---
+
+# 40. FINAL EXPECTATION
+
+I want something that, when I open it, makes me think:
+
+"This looks like a real genealogy product that I could actually use."
+
+Prioritize the quality of the family tree, person profiles and overall visual experience.
+
+Do not give me a long explanation before doing the work.
+
+Inspect the project and start building.
