@@ -1,4 +1,4 @@
-"""ASGI config for the Githinji family site."""
+"""ASGI config for the Our Roots family site."""
 import os
 
 from django.core.asgi import get_asgi_application

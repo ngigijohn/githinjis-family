@@ -1,4 +1,4 @@
-"""WSGI config for the Githinji family site."""
+"""WSGI config for the Our Roots family site."""
 import os
 
 from django.core.wsgi import get_wsgi_application

@@ -1,4 +1,4 @@
-"""Django settings for the Githinji family genealogy site.
+"""Django settings for Our Roots, a family genealogy site.
 
 Configuration comes from environment variables (or a local `.env` file).
 See `.env.example` for the available options.
@@ -19,7 +19,7 @@ DEBUG = env("DEBUG")
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1", "[::1]"])
 CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
 
-SITE_NAME = env("SITE_NAME", default="Githinji Family")
+SITE_NAME = env("SITE_NAME", default="Our Roots")
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -68,7 +68,7 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 
 # Database: SQLite by default, PostgreSQL (or anything else) via DATABASE_URL,
-# e.g. DATABASE_URL=postgres://user:password@localhost:5432/githinji_family
+# e.g. DATABASE_URL=postgres://user:password@localhost:5432/our_roots
 if env("DATABASE_URL", default=""):
     DATABASES = {"default": env.db("DATABASE_URL")}
     DATABASES["default"]["CONN_MAX_AGE"] = env.int("CONN_MAX_AGE", default=60)

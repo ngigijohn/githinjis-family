@@ -17,7 +17,7 @@ class SignupForm(StyledFormMixin, UserCreationForm):
         label="How are you related to the family?",
         max_length=300,
         required=False,
-        widget=forms.TextInput(attrs={"placeholder": "e.g. Grandson of John Ngigi through George Githinji"}),
+        widget=forms.TextInput(attrs={"placeholder": "e.g. Grandson of Wanjiku, through her son Peter"}),
     )
 
     class Meta(UserCreationForm.Meta):

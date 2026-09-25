@@ -95,7 +95,7 @@ def export(site_name="Family", include_living=True):
 
     lines = [
         "0 HEAD",
-        "1 SOUR GITHINJI-FAMILY",
+        "1 SOUR OUR-ROOTS",
         f"2 NAME {_clean(site_name)}",
         "1 GEDC",
         "2 VERS 5.5.1",

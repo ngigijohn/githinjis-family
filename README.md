@@ -1,6 +1,6 @@
-# Githinji Family
+# Our Roots
 
-A genealogy website for the extended Githinji family. It keeps a record of every relative, draws an interactive family tree, and works out how any two people are related.
+A genealogy website for an extended family. It keeps a record of every relative, draws an interactive family tree, and works out how any two people are related.
 
 It started in 2020 as a single static page with a gallery and a hand-built tree of the nuclear family. It is now a Django application backed by a database.
 
@@ -70,11 +70,11 @@ Settings come from environment variables or `.env`:
 | `SECRET_KEY` | development key | **Must** be set in production |
 | `ALLOWED_HOSTS` | `localhost,127.0.0.1` | Comma-separated |
 | `CSRF_TRUSTED_ORIGINS` | – | e.g. `https://family.example.com` |
-| `DATABASE_URL` | – | e.g. `postgres://user:pass@host:5432/githinji_family`. SQLite is used when unset |
+| `DATABASE_URL` | – | e.g. `postgres://user:pass@host:5432/our_roots`. SQLite is used when unset |
 | `SQLITE_PATH` | `./db.sqlite3` | |
 | `MEDIA_ROOT` | `./media` | Uploaded photos |
 | `SERVE_MEDIA` | `False` | Let Django serve uploads on a small single-server deployment |
-| `SITE_NAME` | `Githinji Family` | |
+| `SITE_NAME` | `Our Roots` | The name shown in the header, titles and exports |
 
 ## Deploying
 
